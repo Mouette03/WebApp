@@ -26,6 +26,7 @@ Le moyen le plus simple d'utiliser ce projet est de laisser GitHub Actions faire
 1.  Modifiez le fichier `config.json` selon vos besoins.
 2.  Poussez vos modifications sur la branche `main`.
 3.  GitHub Actions va automatiquement construire l'image et la publier sur `ghcr.io/mouette03/webapp`.
+  - Chaque build se voit attribuer un numéro de version auto-incrémenté (basé sur `run_number`) et un tag `latest`.
 
 Vous pouvez ensuite utiliser l'image dans vos projets, par exemple avec `docker-compose` :
 
@@ -39,6 +40,8 @@ services:
     volumes:
       - ./src:/var/www/html
 ```
+
+> 💡 Vous pouvez aussi épingler une version spécifique en remplaçant `latest` par le numéro de build (ex: `ghcr.io/mouette03/webapp:42`).
 
 ### Utilisation en local
 
