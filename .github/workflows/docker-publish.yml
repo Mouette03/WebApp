@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     # Permissions nécessaires pour ce job.
     permissions:
-      contents: read   # Permission de lire le contenu du dépôt (pour le checkout).
+      contents: write  # Permission de lire ET écrire le contenu (pour commiter la nouvelle version).
       packages: write  # Permission d'écrire des packages (pour publier l'image sur ghcr.io).
 
     # Étapes du job.
@@ -41,19 +41,45 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 4. Prépare les métadonnées de l'image (nom en minuscule + numéro de version auto-incrémenté).
+      # 4. Prépare les métadonnées de l'image (nom en minuscule + version sémantique auto-incrémentée).
       - name: Prepare image metadata
         run: |
           IMAGE_NAME=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
-          IMAGE_VERSION=${GITHUB_RUN_NUMBER}
+          
+          # Lit la version actuelle
+          CURRENT_VERSION=$(cat VERSION)
+          
+          # Découpe la version en MAJOR.MINOR.PATCH
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Incrémente le PATCH
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+          
+          # Sauvegarde la nouvelle version
+          echo "$NEW_VERSION" > VERSION
+          
           echo "IMAGE_NAME=${IMAGE_NAME}" >> "$GITHUB_ENV"
-          echo "IMAGE_VERSION=${IMAGE_VERSION}" >> "$GITHUB_ENV"
+          echo "IMAGE_VERSION=v${NEW_VERSION}" >> "$GITHUB_ENV"
+          echo "IMAGE_VERSION_SHORT=${NEW_VERSION}" >> "$GITHUB_ENV"
+          echo "OLD_VERSION=${CURRENT_VERSION}" >> "$GITHUB_ENV"
+          
+          echo "✅ Version incrémentée : ${CURRENT_VERSION} → ${NEW_VERSION}"
+      
+      # 5. Commite la nouvelle version dans le dépôt
+      - name: Commit new version
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add VERSION
+          git commit -m "chore: bump version ${{ env.OLD_VERSION }} → ${{ env.IMAGE_VERSION_SHORT }}" || echo "No changes to commit"
+          git push || echo "Nothing to push"
 
-      # 5. Génère le Dockerfile à partir du template et du fichier de configuration.
+      # 6. Génère le Dockerfile à partir du template et du fichier de configuration.
       - name: Generate Dockerfile
         run: python3 generate_dockerfile.py
 
-      # 6. Construit l'image Docker et la publie sur le GitHub Container Registry.
+      # 7. Construit l'image Docker et la publie sur le GitHub Container Registry.
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -66,7 +92,9 @@ jobs:
           # Construit l'image pour les architectures amd64 (standard) et arm64 (ex: Raspberry Pi, Mac M1/M2).
           platforms: linux/amd64,linux/arm64
           # Les "tags" (étiquettes) de l'image.
+          # Crée 4 tags : latest, v1.0.0, 1.0.0, et le SHA du commit
           tags: |
             ghcr.io/${{ env.IMAGE_NAME }}:latest
             ghcr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
-            ghcr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION_SHORT }}
+            ghcr.io/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}

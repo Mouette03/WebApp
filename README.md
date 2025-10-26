@@ -23,25 +23,40 @@ Modifiez simplement ce fichier, et GitHub Actions s'occupera de générer un nou
 ### Build Automatisé
 
 Le moyen le plus simple d'utiliser ce projet est de laisser GitHub Actions faire le travail.
-1.  Modifiez le fichier `config.json` selon vos besoins.
-2.  Poussez vos modifications sur la branche `main`.
-3.  GitHub Actions va automatiquement construire l'image et la publier sur `ghcr.io/mouette03/webapp`.
-  - Chaque build se voit attribuer un numéro de version auto-incrémenté (basé sur `run_number`) et un tag `latest`.
 
-Vous pouvez ensuite utiliser l'image dans vos projets, par exemple avec `docker-compose` :
+**Modifications simples (config, ajustements) :**
+1.  Modifiez `config.json` selon vos besoins
+2.  Poussez sur `main`
+3.  La version PATCH s'incrémente automatiquement (ex: `1.0.5` → `1.0.6`)
+
+**Nouvelles fonctionnalités ou changements majeurs :**
+1.  Modifiez `VERSION` manuellement (ex: `1.0.8` → `1.1.0` ou `2.0.0`)
+2.  Modifiez `config.json` si nécessaire
+3.  Poussez sur `main`
+
+GitHub Actions va automatiquement :
+- Incrémenter la version (PATCH uniquement, sauf si vous changez MAJOR/MINOR)
+- Commiter la nouvelle version dans `VERSION`
+- Générer le `dockerfile` à partir du template
+- Construire l'image pour `linux/amd64` et `linux/arm64`
+- Publier l'image sur `ghcr.io/mouette03/webapp` avec les tags :
+  - `:latest` (dernière version)
+  - `:v1.0.6` (version avec préfixe v)
+  - `:1.0.6` (version sans préfixe)
+  - `:sha-xxxxxx` (hash du commit)Vous pouvez ensuite utiliser l'image dans vos projets, par exemple avec `docker-compose` :
 
 ```yaml
 version: '3.8'
 services:
   my-app:
-    image: ghcr.io/mouette03/webapp:latest
+    image: ghcr.io/mouette03/webapp:latest  # ou :v1.0.0 pour une version spécifique
     ports:
       - "8080:80"
     volumes:
       - ./src:/var/www/html
 ```
 
-> 💡 Vous pouvez aussi épingler une version spécifique en remplaçant `latest` par le numéro de build (ex: `ghcr.io/mouette03/webapp:42`).
+> 💡 Vous pouvez épingler une version spécifique en remplaçant `latest` par une version (ex: `v1.0.0`, `v1.2.3`, ou `1.0.0`).
 
 ### Utilisation en local
 
