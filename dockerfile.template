@@ -1,62 +1,41 @@
-FROM php:8.3-apache-bookworm
+# Utilise l'image de base PHP avec la version spécifiée et le serveur Apache.
+# %%PHP_VERSION%% est un placeholder qui sera remplacé par la version de PHP définie dans config.json.
+FROM php:%%PHP_VERSION%%-apache-bookworm
 
 # =========================================================================
 # ÉTAPE 1: Dépendances système
 # =========================================================================
+# Installe les paquets système nécessaires.
+# %%SYSTEM_DEPENDENCIES%% sera remplacé par la liste des dépendances de config.json.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
-    libpng-dev \
-    libzip-dev \
-    libicu-dev \
-    libxml2-dev \
-    libxslt-dev \
-    libldap2-dev \
-    libmagickwand-dev \
-    libcurl4-openssl-dev \
-    libonig-dev \
-    zlib1g-dev \
-    gettext \
-    git \
-    curl \
-    unzip \
-    zip \
-    pkg-config \
+    %%SYSTEM_DEPENDENCIES%% \
     && rm -rf /var/lib/apt/lists/*
 
 # =========================================================================
 # ÉTAPE 2: Extensions PHP
 # =========================================================================
+# Configure et installe les extensions PHP.
+# %%PHP_EXTENSIONS%% sera remplacé par la liste des extensions de config.json.
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd
 
 RUN docker-php-ext-install -j$(nproc) \
-    zip \
-    pdo_mysql \
-    mysqli \
-    intl \
-    soap \
-    opcache \
-    exif \
-    ldap \
-    mbstring \
-    xsl \
-    bcmath \
-    sockets \
-    fileinfo \
-    xml \
-    gettext
+    %%PHP_EXTENSIONS%%
 
 # =========================================================================
 # ÉTAPE 3: Extensions PECL
 # =========================================================================
-RUN pecl install imagick apcu \
-    && docker-php-ext-enable imagick apcu
+# Installe et active les extensions PECL.
+# %%PECL_EXTENSIONS%% sera remplacé par la liste des extensions PECL de config.json.
+RUN pecl install %%PECL_EXTENSIONS%% \
+    && docker-php-ext-enable %%PECL_EXTENSIONS%%
 
 # =========================================================================
 # ÉTAPE 4: Config Apache + PHP
 # =========================================================================
+# Active les modules Apache nécessaires.
 RUN a2enmod rewrite headers expires deflate \
+    # Configure le VirtualHost d'Apache pour servir les fichiers depuis /var/www/html.
     && { \
         echo '<VirtualHost *:80>'; \
         echo '    ServerAdmin webmaster@localhost'; \
@@ -71,14 +50,11 @@ RUN a2enmod rewrite headers expires deflate \
         echo '</VirtualHost>'; \
     } > /etc/apache2/sites-available/000-default.conf
 
-RUN { \
-        echo 'file_uploads = On'; \
-        echo 'memory_limit = 256M'; \
-        echo 'upload_max_filesize = 64M'; \
-        echo 'post_max_size = 80M'; \
-        echo 'max_execution_time = 300'; \
-        echo 'date.timezone = "UTC"'; \
-    } > /usr/local/etc/php/conf.d/zz-custom-settings.ini
+# Applique les paramètres de configuration PHP (php.ini).
+# %%PHP_INI_SETTINGS%% sera remplacé par une série de commandes 'echo' générées à partir de config.json.
+RUN %%PHP_INI_SETTINGS%%
 
+# Définit le répertoire de travail.
 WORKDIR /var/www/html
+# Expose le port 80 pour le serveur web.
 EXPOSE 80
