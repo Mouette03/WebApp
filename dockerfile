@@ -1,10 +1,27 @@
-FROM php:%%PHP_VERSION%%-apache-bookworm
+﻿FROM php:8.3-apache-bookworm
 
 # =========================================================================
 # ÉTAPE 1: Dépendances système
 # =========================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
-%%SYSTEM_DEPENDENCIES%% \
+    libfreetype6-dev \
+    libjpeg62-turbo-dev \
+    libpng-dev \
+    libzip-dev \
+    libicu-dev \
+    libxml2-dev \
+    libxslt-dev \
+    libldap2-dev \
+    libmagickwand-dev \
+    libcurl4-openssl-dev \
+    libonig-dev \
+    zlib1g-dev \
+    gettext \
+    git \
+    curl \
+    unzip \
+    zip \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # =========================================================================
@@ -14,13 +31,28 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) gd
 
 RUN docker-php-ext-install -j$(nproc) \
-%%PHP_EXTENSIONS%%
+    gd \
+    zip \
+    pdo_mysql \
+    mysqli \
+    intl \
+    soap \
+    opcache \
+    exif \
+    ldap \
+    mbstring \
+    xsl \
+    bcmath \
+    sockets \
+    fileinfo \
+    xml \
+    gettext
 
 # =========================================================================
 # ÉTAPE 3: Extensions PECL
 # =========================================================================
-RUN pecl install %%PECL_EXTENSIONS%% \
-    && docker-php-ext-enable %%PECL_EXTENSIONS%%
+RUN pecl install imagick apcu \
+    && docker-php-ext-enable imagick apcu
 
 # =========================================================================
 # ÉTAPE 4: Config Apache + PHP
@@ -40,7 +72,12 @@ RUN a2enmod rewrite headers expires deflate \
         echo '</VirtualHost>'; \
     } > /etc/apache2/sites-available/000-default.conf
 
-RUN %%PHP_INI_SETTINGS%%
+RUN echo 'file_uploads = On' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
+    echo 'memory_limit = 256M' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
+    echo 'upload_max_filesize = 64M' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
+    echo 'post_max_size = 80M' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
+    echo 'max_execution_time = 300' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
+    echo 'date.timezone = UTC' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini
 
 WORKDIR /var/www/html
 EXPOSE 80

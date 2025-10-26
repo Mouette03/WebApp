@@ -16,13 +16,17 @@ with open('dockerfile.template', 'r', encoding='utf-8') as f:
 dockerfile_content = template.replace('%%PHP_VERSION%%', config['php_version'])
 
 # Remplace la liste des dépendances système.
-# Chaque élément est sur une nouvelle ligne avec 4 espaces d'indentation et un backslash de continuation.
-system_deps = ' \\\n    '.join(config['system_dependencies'])
+# Chaque élément est indenté de 4 espaces et se termine par un backslash (sauf le dernier).
+system_deps = '\n'.join(f"    {dep} \\" for dep in config['system_dependencies'])
+# Retire le dernier backslash
+system_deps = system_deps.rstrip(' \\')
 dockerfile_content = dockerfile_content.replace('%%SYSTEM_DEPENDENCIES%%', system_deps)
 
 # Remplace la liste des extensions PHP.
-# Chaque élément est sur une nouvelle ligne avec 4 espaces d'indentation et un backslash de continuation.
-php_exts = ' \\\n    '.join(config['php_extensions'])
+# Chaque élément est indenté de 4 espaces et se termine par un backslash (sauf le dernier).
+php_exts = '\n'.join(f"    {ext} \\" for ext in config['php_extensions'])
+# Retire le dernier backslash
+php_exts = php_exts.rstrip(' \\')
 dockerfile_content = dockerfile_content.replace('%%PHP_EXTENSIONS%%', php_exts)
 
 # Remplace la liste des extensions PECL (sur une seule ligne, séparées par des espaces).
