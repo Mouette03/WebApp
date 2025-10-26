@@ -72,7 +72,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add VERSION
-          git commit -m "chore: bump version ${{ env.OLD_VERSION }} → ${{ env.IMAGE_VERSION_SHORT }}" || echo "No changes to commit"
+          git commit -m "chore: bump version ${{ env.OLD_VERSION }} → ${{ env.IMAGE_VERSION_SHORT }} [skip ci]" || echo "No changes to commit"
           git push || echo "Nothing to push"
 
       # 6. Génère le Dockerfile à partir du template et du fichier de configuration.
@@ -92,9 +92,7 @@ jobs:
           # Construit l'image pour les architectures amd64 (standard) et arm64 (ex: Raspberry Pi, Mac M1/M2).
           platforms: linux/amd64,linux/arm64
           # Les "tags" (étiquettes) de l'image.
-          # Crée 4 tags : latest, v1.0.0, 1.0.0, et le SHA du commit
+          # Crée 2 tags : latest et v1.0.0
           tags: |
             ghcr.io/${{ env.IMAGE_NAME }}:latest
             ghcr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
-            ghcr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION_SHORT }}
-            ghcr.io/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}

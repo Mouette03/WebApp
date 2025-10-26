@@ -41,9 +41,7 @@ GitHub Actions va automatiquement :
 - Construire l'image pour `linux/amd64` et `linux/arm64`
 - Publier l'image sur `ghcr.io/mouette03/webapp` avec les tags :
   - `:latest` (dernière version)
-  - `:v1.0.6` (version avec préfixe v)
-  - `:1.0.6` (version sans préfixe)
-  - `:sha-xxxxxx` (hash du commit)Vous pouvez ensuite utiliser l'image dans vos projets, par exemple avec `docker-compose` :
+  - `:v1.0.6` (version avec préfixe v)Vous pouvez ensuite utiliser l'image dans vos projets, par exemple avec `docker-compose` :
 
 ```yaml
 version: '3.8'
@@ -56,7 +54,7 @@ services:
       - ./src:/var/www/html
 ```
 
-> 💡 Vous pouvez épingler une version spécifique en remplaçant `latest` par une version (ex: `v1.0.0`, `v1.2.3`, ou `1.0.0`).
+> 💡 Vous pouvez épingler une version spécifique en remplaçant `latest` par une version (ex: `v1.0.0`, `v1.2.3`).
 
 ### Utilisation en local
 

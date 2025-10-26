@@ -31,29 +31,27 @@ Le format utilisé est le **versionnage sémantique** (semver) : `MAJOR.MINOR.PA
 
 ## 📦 Tags créés automatiquement
 
-À chaque build, GitHub Actions créera 4 tags :
+À chaque build, GitHub Actions créera 2 tags :
 - `ghcr.io/mouette03/webapp:latest` (toujours la dernière version)
-- `ghcr.io/mouette03/webapp:v1.0.6` (avec préfixe v)
-- `ghcr.io/mouette03/webapp:1.0.6` (sans préfixe)
-- `ghcr.io/mouette03/webapp:sha-abc1234` (hash du commit)
+- `ghcr.io/mouette03/webapp:v1.0.6` (version avec préfixe v)
 
 ## 📝 Exemples
 
 **Scénario 1 - Ajustements de config :**
 - Vous modifiez `config.json` et poussez
 - `1.0.5` → `1.0.6` (automatique)
-- Tags : `latest`, `v1.0.6`, `1.0.6`
+- Tags : `latest`, `v1.0.6`
 
 **Scénario 2 - Nouvelle extension PHP :**
 - Vous modifiez `VERSION` : `1.0.8` → `1.1.0`
 - Vous modifiez `config.json` (ajout extension)
 - Vous poussez
-- `1.1.0` → `1.1.0` (premier build de cette MINOR)
-- Au prochain push : `1.1.0` → `1.1.1`
+- Tags : `latest`, `v1.1.0`
+- Au prochain push : Tags : `latest`, `v1.1.1`
 
 **Scénario 3 - Nouvelle version PHP majeure :**
 - Vous modifiez `VERSION` : `1.5.12` → `2.0.0`
 - Vous modifiez `config.json` (php_version: "9.0")
 - Vous poussez
-- `2.0.0` → `2.0.0`
-- Au prochain push : `2.0.0` → `2.0.1`
+- Tags : `latest`, `v2.0.0`
+- Au prochain push : Tags : `latest`, `v2.0.1`
