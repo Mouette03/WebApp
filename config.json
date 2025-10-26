@@ -21,7 +21,6 @@
     "pkg-config"
   ],
   "php_extensions": [
-    "gd",
     "zip",
     "pdo_mysql",
     "mysqli",
