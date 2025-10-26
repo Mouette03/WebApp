@@ -22,7 +22,12 @@ $dockerfile = $dockerfile -replace '%%PECL_EXTENSIONS%%', $peclExts
 # Remplace PHP_INI_SETTINGS
 $phpIniCommands = @()
 foreach ($setting in $config.php_ini_settings.PSObject.Properties) {
-    $phpIniCommands += "echo '$($setting.Name) = $($setting.Value)' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini"
+    # Ajoute des guillemets pour date.timezone (format original)
+    if ($setting.Name -eq 'date.timezone') {
+        $phpIniCommands += "echo '$($setting.Name) = `"$($setting.Value)`"' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini"
+    } else {
+        $phpIniCommands += "echo '$($setting.Name) = $($setting.Value)' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini"
+    }
 }
 $phpIniString = $phpIniCommands -join " && \`n    "
 $dockerfile = $dockerfile -replace '%%PHP_INI_SETTINGS%%', $phpIniString

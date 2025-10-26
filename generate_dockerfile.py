@@ -36,7 +36,11 @@ dockerfile_content = dockerfile_content.replace('%%PECL_EXTENSIONS%%', ' '.join(
 # Ces commandes sont enchaînées avec &&.
 php_ini_settings = []
 for key, value in config['php_ini_settings'].items():
-    php_ini_settings.append(f"echo '{key} = {value}' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini")
+    # Ajoute des guillemets pour date.timezone (format original)
+    if key == 'date.timezone':
+        php_ini_settings.append(f"echo '{key} = \"{value}\"' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini")
+    else:
+        php_ini_settings.append(f"echo '{key} = {value}' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini")
 
 php_ini_commands = ' && \\\n    '.join(php_ini_settings) if php_ini_settings else 'true'
 dockerfile_content = dockerfile_content.replace('%%PHP_INI_SETTINGS%%', php_ini_commands)

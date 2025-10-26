@@ -76,7 +76,7 @@ RUN echo 'file_uploads = On' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini
     echo 'upload_max_filesize = 64M' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
     echo 'post_max_size = 80M' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
     echo 'max_execution_time = 300' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
-    echo 'date.timezone = UTC' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini
+    echo 'date.timezone = "UTC"' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini
 
 WORKDIR /var/www/html
 EXPOSE 80
