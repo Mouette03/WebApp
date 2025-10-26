@@ -26,9 +26,25 @@ jobs:
       # 1. Récupère le code source de votre dépôt.
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Récupère les 2 derniers commits pour comparer
+      
+      # 2. Vérifie si le dernier commit contient [skip ci] et arrête le job si c'est le cas
+      - name: Check if should skip CI
+        id: check_skip
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          if echo "$COMMIT_MSG" | grep -q "\[skip ci\]"; then
+            echo "🛑 CI skipped - commit message contains [skip ci]"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ CI will run"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
 
-      # 2. Se connecte au GitHub Container Registry (ghcr.io).
+      # 3. Se connecte au GitHub Container Registry (ghcr.io).
       - name: Log in to the GitHub Container Registry
+        if: steps.check_skip.outputs.skip != 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -37,12 +53,14 @@ jobs:
           # Le mot de passe est un token généré automatiquement par GitHub pour cette action.
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. Met en place Docker Buildx, un outil qui permet de construire des images pour plusieurs architectures.
+      # 4. Met en place Docker Buildx, un outil qui permet de construire des images pour plusieurs architectures.
       - name: Set up Docker Buildx
+        if: steps.check_skip.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v3
 
-      # 4. Prépare les métadonnées de l'image (nom en minuscule + version sémantique auto-incrémentée).
+      # 5. Prépare les métadonnées de l'image (nom en minuscule + version sémantique auto-incrémentée).
       - name: Prepare image metadata
+        if: steps.check_skip.outputs.skip != 'true'
         run: |
           IMAGE_NAME=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
           
@@ -66,8 +84,9 @@ jobs:
           
           echo "✅ Version incrémentée : ${CURRENT_VERSION} → ${NEW_VERSION}"
       
-      # 5. Commite la nouvelle version dans le dépôt
+      # 6. Commite la nouvelle version dans le dépôt
       - name: Commit new version
+        if: steps.check_skip.outputs.skip != 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -75,12 +94,14 @@ jobs:
           git commit -m "chore: bump version ${{ env.OLD_VERSION }} → ${{ env.IMAGE_VERSION_SHORT }} [skip ci]" || echo "No changes to commit"
           git push || echo "Nothing to push"
 
-      # 6. Génère le Dockerfile à partir du template et du fichier de configuration.
+      # 7. Génère le Dockerfile à partir du template et du fichier de configuration.
       - name: Generate Dockerfile
+        if: steps.check_skip.outputs.skip != 'true'
         run: python3 generate_dockerfile.py
 
-      # 7. Construit l'image Docker et la publie sur le GitHub Container Registry.
+      # 8. Construit l'image Docker et la publie sur le GitHub Container Registry.
       - name: Build and push Docker image
+        if: steps.check_skip.outputs.skip != 'true'
         uses: docker/build-push-action@v5
         with:
           # Le contexte de build est le répertoire courant.
