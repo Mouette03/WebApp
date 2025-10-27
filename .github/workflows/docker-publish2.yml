@@ -1,5 +1,5 @@
 # Nom du workflow qui s'affichera dans l'onglet "Actions" de votre dépôt GitHub.
-name: Build and Push Docker Image
+name: Build and Push Docker Image ARM64 & AMD64
 
 # Déclencheurs du workflow.
 on:
