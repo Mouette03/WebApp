@@ -48,8 +48,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          # Le nom d'utilisateur est l'acteur qui a déclenché le workflow (vous).
-          username: ${{ github.actor }}
+          # Le nom d'utilisateur est l'acteur qui a déclenché le workflow (vous), forcé en minuscules.
+          username: ${{ github.repository_owner }}
           # Le mot de passe est un token généré automatiquement par GitHub pour cette action.
           password: ${{ secrets.GITHUB_TOKEN }}
 
