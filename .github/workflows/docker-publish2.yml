@@ -120,7 +120,9 @@ jobs:
           # Cache optimisé pour accélérer les builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
+          # Supprimer images untagged
+          provenance: false
+          sbom: false
   # ============================================================
   # JOB DE NETTOYAGE : Supprime les images untagged orphelines
   # ============================================================
