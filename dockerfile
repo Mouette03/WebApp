@@ -1,9 +1,11 @@
 ﻿FROM php:8.3-apache-bookworm
 
 # =========================================================================
-# ÉTAPE 1: Dépendances système
+# ÉTAPE 1: Mises à jour de sécurité et Dépendances système
 # =========================================================================
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# AJOUT CRITIQUE : 'apt-get upgrade' force la mise à jour des libs vulnérables (Apache, Libxml2...)
+# déjà présentes dans l'image de base.
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     libfreetype6-dev \
     libjpeg62-turbo-dev \
     libpng-dev \
@@ -22,6 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     zip \
     pkg-config \
+    # Nettoyage pour réduire la taille
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # =========================================================================
@@ -50,12 +54,14 @@ RUN docker-php-ext-install -j$(nproc) \
 # =========================================================================
 # ÉTAPE 3: Extensions PECL
 # =========================================================================
+# Note : La recompilation d'Imagick utilisera maintenant les libs système à jour
 RUN pecl install imagick apcu \
     && docker-php-ext-enable imagick apcu
 
 # =========================================================================
 # ÉTAPE 4: Config Apache + PHP
 # =========================================================================
+# Activation de SSLStrictSNIVHostCheck recommandée pour mitiger CVE-2025-23048 si SSL est utilisé
 RUN a2enmod rewrite headers expires deflate \
     && { \
         echo '<VirtualHost *:80>'; \
