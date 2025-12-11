@@ -110,6 +110,7 @@ jobs:
         if: steps.check_skip.outputs.skip != 'true'
         uses: docker/build-push-action@v5
         with:
+          no-cache: true
           context: .
           file: ./dockerfile
           push: true
