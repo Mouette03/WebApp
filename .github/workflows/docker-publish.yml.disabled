@@ -1,5 +1,5 @@
 # Nom du workflow qui s'affichera dans l'onglet "Actions" de votre dépôt GitHub.
-name: Build and Push Docker Image ARM64 & AMD64
+name: Build and Push Docker Image
 
 # Déclencheurs du workflow.
 on:
@@ -14,7 +14,7 @@ on:
 jobs:
   # Nom du job.
   build-and-push:
-    # Machine virtuelle sur laquelle le job va s'exécuter.
+    # Machine virtuelle sur laquelle le job va s'exécuter. "ubuntu-latest" est un bon choix standard.
     runs-on: ubuntu-latest
     # Permissions nécessaires pour ce job.
     permissions:
@@ -48,23 +48,17 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          # Le nom d'utilisateur est le propriétaire du dépôt, forcé en minuscules.
+          # Le nom d'utilisateur est l'acteur qui a déclenché le workflow (vous), forcé en minuscules.
           username: ${{ github.repository_owner }}
+          # Le mot de passe est un token généré automatiquement par GitHub pour cette action.
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 4. Configure QEMU pour l'émulation ARM64
-      - name: Set up QEMU
-        if: steps.check_skip.outputs.skip != 'true'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
-
-      # 5. Met en place Docker Buildx avec plateformes optimisées
+      # 4. Met en place Docker Buildx, un outil qui permet de construire des images pour plusieurs architectures.
       - name: Set up Docker Buildx
         if: steps.check_skip.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v3
 
-      # 6. Prépare les métadonnées de l'image (nom en minuscule + version sémantique auto-incrémentée).
+      # 5. Prépare les métadonnées de l'image (nom en minuscule + version sémantique auto-incrémentée).
       - name: Prepare image metadata
         if: steps.check_skip.outputs.skip != 'true'
         run: |
@@ -90,7 +84,7 @@ jobs:
           
           echo "✅ Version incrémentée : ${CURRENT_VERSION} → ${NEW_VERSION}"
       
-      # 7. Commite la nouvelle version dans le dépôt
+      # 6. Commite la nouvelle version dans le dépôt
       - name: Commit new version
         if: steps.check_skip.outputs.skip != 'true'
         run: |
@@ -100,43 +94,26 @@ jobs:
           git commit -m "chore: bump version ${{ env.OLD_VERSION }} → ${{ env.IMAGE_VERSION_SHORT }} [skip ci]" || echo "No changes to commit"
           git push || echo "Nothing to push"
 
-      # 8. Génère le Dockerfile à partir du template et du fichier de configuration.
+      # 7. Génère le Dockerfile à partir du template et du fichier de configuration.
       - name: Generate Dockerfile
         if: steps.check_skip.outputs.skip != 'true'
         run: python3 generate_dockerfile.py
 
-      # 9. Construit l'image Docker et la publie sur le GitHub Container Registry.
+      # 8. Construit l'image Docker et la publie sur le GitHub Container Registry.
       - name: Build and push Docker image
         if: steps.check_skip.outputs.skip != 'true'
         uses: docker/build-push-action@v5
         with:
+          # Le contexte de build est le répertoire courant.
           context: .
+          # Le chemin vers le Dockerfile à utiliser.
           file: ./dockerfile
+          # "true" pour publier l'image après la construction.
           push: true
+          # Construit l'image pour les architectures amd64 (standard) et arm64 (ex: Raspberry Pi, Mac M1/M2).
           platforms: linux/amd64,linux/arm64
+          # Les "tags" (étiquettes) de l'image.
+          # Crée 2 tags : latest et v1.0.0
           tags: |
             ghcr.io/${{ env.IMAGE_NAME }}:latest
             ghcr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
-          # Cache optimisé pour accélérer les builds
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # Supprimer images untagged
-          provenance: false
-          sbom: false
-  # ============================================================
-  # JOB DE NETTOYAGE : Supprime les images untagged orphelines
-  # ============================================================
-  cleanup:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-    
-    steps:
-      - name: Delete old untagged images
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: ${{ github.event.repository.name }}
-          package-type: 'container'
-          min-versions-to-keep: 0
-          delete-only-untagged-versions: 'true'
