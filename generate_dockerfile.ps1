@@ -11,8 +11,8 @@ $dockerfile = $template -replace '%%PHP_VERSION%%', $config.php_version
 $systemTools = ($config.system_tools | ForEach-Object { "    $_ \" }) -join "`n"
 $dockerfile = $dockerfile -replace '%%SYSTEM_TOOLS%%', $systemTools
 
-# Remplace PHP_EXTENSIONS (Core + PECL ensemble, sans backslash)
-$phpExts = ($config.php_extensions | ForEach-Object { "    $_" }) -join "`n"
+# Remplace PHP_EXTENSIONS (Core + PECL ensemble, sur une seule ligne)
+$phpExts = $config.php_extensions -join " "
 $dockerfile = $dockerfile -replace '%%PHP_EXTENSIONS%%', $phpExts
 
 # Remplace PHP_INI_SETTINGS (format INI simple)

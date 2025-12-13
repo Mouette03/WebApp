@@ -21,8 +21,8 @@ system_tools = '\n'.join(f"    {tool} \\" for tool in config['system_tools'])
 dockerfile_content = dockerfile_content.replace('%%SYSTEM_TOOLS%%', system_tools)
 
 # Remplace la liste des extensions PHP (Core + PECL ensemble avec mlocati).
-# Chaque élément est indenté de 4 espaces, sans backslash (mlocati gère la liste différemment)
-php_exts = '\n'.join(f"    {ext}" for ext in config['php_extensions'])
+# Toutes les extensions sur une seule ligne séparées par des espaces
+php_exts = ' '.join(config['php_extensions'])
 dockerfile_content = dockerfile_content.replace('%%PHP_EXTENSIONS%%', php_exts)
 
 # Crée le contenu du fichier php.ini avec les paramètres.
