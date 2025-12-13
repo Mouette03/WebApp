@@ -7,7 +7,7 @@
 <div align="center">
 
 [![Docker Build & Push](https://github.com/Mouette03/WebApp/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Mouette03/WebApp/actions/workflows/docker-publish.yml)
-![GitHub release](https://img.shields.io/github/v/release/Mouette03/WebApp)
+![Container](https://ghcr-badge.egpl.dev/mouette03/webapp/latest_tag?trim=major&label=latest)
 ![PHP Version](https://img.shields.io/badge/PHP-8.3-777BB4?logo=php&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
 ![License](https://img.shields.io/github/license/Mouette03/WebApp)
