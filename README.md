@@ -4,7 +4,16 @@
 
 # Image PHP-Apache Personnalisable et Multi-Architecture
 
+<div align="center">
+
 [![Docker Build & Push](https://github.com/Mouette03/WebApp/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Mouette03/WebApp/actions/workflows/docker-publish.yml)
+![GitHub release](https://img.shields.io/github/v/release/Mouette03/WebApp)
+![PHP Version](https://img.shields.io/badge/PHP-8.3-777BB4?logo=php&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-linux%2Famd64%20%7C%20linux%2Farm64-lightgrey)
+![License](https://img.shields.io/github/license/Mouette03/WebApp)
+![Last Commit](https://img.shields.io/github/last-commit/Mouette03/WebApp)
+
+</div>
 
 Ce projet fournit une base pour construire des images Docker `php-apache` personnalisées. Grâce à un système de configuration simple et à l'intégration de GitHub Actions, vous pouvez facilement générer des images multi-architectures (`linux/amd64`, `linux/arm64`) adaptées à vos besoins.
 
