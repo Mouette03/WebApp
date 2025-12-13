@@ -9,6 +9,8 @@ $dockerfile = $template -replace '%%PHP_VERSION%%', $config.php_version
 
 # Remplace SYSTEM_TOOLS avec indentation correcte
 $systemTools = ($config.system_tools | ForEach-Object { "    $_ \" }) -join "`n"
+# Retire le backslash du dernier élément
+$systemTools = $systemTools.TrimEnd(' \')
 $dockerfile = $dockerfile -replace '%%SYSTEM_TOOLS%%', $systemTools
 
 # Remplace PHP_EXTENSIONS (Core + PECL ensemble, sur une seule ligne)

@@ -16,8 +16,10 @@ with open('dockerfile.template', 'r', encoding='utf-8') as f:
 dockerfile_content = template.replace('%%PHP_VERSION%%', config['php_version'])
 
 # Remplace la liste des outils système.
-# Chaque élément est indenté de 4 espaces et se termine par un backslash.
+# Chaque élément est indenté de 4 espaces et se termine par un backslash (sauf le dernier).
 system_tools = '\n'.join(f"    {tool} \\" for tool in config['system_tools'])
+# Retire le backslash du dernier élément
+system_tools = system_tools.rstrip(' \\')
 dockerfile_content = dockerfile_content.replace('%%SYSTEM_TOOLS%%', system_tools)
 
 # Remplace la liste des extensions PHP (Core + PECL ensemble avec mlocati).
