@@ -11,15 +11,21 @@ Le numéro de version est **automatiquement incrémenté** à chaque build :
 
 ## 🎯 Changement manuel de version
 
-Si vous voulez changer **MAJOR** ou **MINOR**, modifiez manuellement le fichier `VERSION` :
+Le système détecte automatiquement les patterns spéciaux pour les changements majeurs/mineurs :
 
 **Pour une nouvelle fonctionnalité (MINOR) :**
-- Changez `1.0.5` en `1.1.0` 
+- Changez VERSION en `X.Y.999` (ex: `1.0.999`)
 - Le prochain build créera `1.1.0`, puis `1.1.1`, `1.1.2`, etc.
 
-**Pour un changement majeur (MAJOR) :**
-- Changez `1.5.3` en `2.0.0`
+**Pour un changement majeur/breaking change (MAJOR) :**
+- Changez VERSION en `X.9.999` (ex: `1.9.999`)
 - Le prochain build créera `2.0.0`, puis `2.0.1`, `2.0.2`, etc.
+
+**Exemples concrets :**
+- `1.0.999` → `1.1.0` (nouvelle fonctionnalité)
+- `1.9.999` → `2.0.0` (breaking change)
+- `2.9.999` → `3.0.0` (breaking change)
+- `1.5.999` → `1.6.0` (nouvelle fonctionnalité)
 
 ## Format
 
