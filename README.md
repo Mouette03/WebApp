@@ -47,9 +47,62 @@ Modifiez simplement ce fichier, et GitHub Actions s'occupera de générer un nou
 
 ## 🚀 Utilisation
 
-### Build Automatisé
+### 📦 Utiliser l'image prête à l'emploi
 
-Le moyen le plus simple d'utiliser ce projet est de laisser GitHub Actions faire le travail.
+Si vous voulez simplement **utiliser cette image** dans vos projets sans la modifier :
+
+**Avec Docker Compose** :
+```yaml
+version: '3.8'
+services:
+  my-app:
+    image: ghcr.io/mouette03/webapp:latest  # ou :v1.0.0 pour une version spécifique
+    ports:
+      - "8080:80"
+    volumes:
+      - ./src:/var/www/html
+```
+
+**Avec Docker CLI** :
+```bash
+docker pull ghcr.io/mouette03/webapp:latest
+docker run -d -p 8080:80 -v ./src:/var/www/html ghcr.io/mouette03/webapp:latest
+```
+
+> 💡 Vous pouvez épingler une version spécifique en remplaçant `latest` par une version (ex: `v1.0.0`, `v1.2.3`).
+
+---
+
+### 🔧 Personnaliser et créer votre propre image
+
+Si vous voulez **forker ce projet** pour créer vos propres images personnalisées :
+
+#### 1. Fork le projet
+- Cliquez sur "Fork" en haut à droite de ce dépôt
+- Clonez votre fork localement
+
+#### 2. Configurez GitHub Actions
+- Allez dans **Settings** → **Actions** → **General**
+- Activez "Read and write permissions" pour `GITHUB_TOKEN`
+- Dans **Packages**, rendez votre package public (optionnel)
+
+#### 3. Personnalisez la configuration
+```bash
+# Modifiez config.json selon vos besoins
+code config.json
+
+# Commitez et poussez
+git add config.json
+git commit -m "feat: personnalisation de l'image"
+git push
+```
+
+#### 4. Utilisez votre image
+Vos images seront publiées sur `ghcr.io/VOTRE_USERNAME/webapp:latest`
+
+---
+
+### 🛠️ Build Automatisé (pour les mainteneurs du projet)
 
 **Modifications simples (config, ajustements) :**
 1.  Modifiez `config.json` selon vos besoins
@@ -71,24 +124,13 @@ GitHub Actions va automatiquement :
 - Publier l'image sur `ghcr.io/mouette03/webapp` avec les tags :
   - `:latest` (dernière version)
   - `:v1.0.6` (version avec préfixe v)
-- Nettoyer automatiquement les images non-taggées orphelinesVous pouvez ensuite utiliser l'image dans vos projets, par exemple avec `docker-compose` :
+- Nettoyer automatiquement les images non-taggées orphelines
 
-```yaml
-version: '3.8'
-services:
-  my-app:
-    image: ghcr.io/mouette03/webapp:latest  # ou :v1.0.0 pour une version spécifique
-    ports:
-      - "8080:80"
-    volumes:
-      - ./src:/var/www/html
-```
+---
 
-> 💡 Vous pouvez épingler une version spécifique en remplaçant `latest` par une version (ex: `v1.0.0`, `v1.2.3`).
+### 💻 Build et test en local
 
-### Utilisation en local
-
-Si vous souhaitez construire et tester l'image localement :
+Si vous voulez construire et tester l'image localement avant de pusher :
 
 1.  **Générer le Dockerfile** :
     
