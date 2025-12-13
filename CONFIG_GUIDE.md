@@ -2,7 +2,7 @@
 
 ## 📋 Vue d'ensemble
 
-Ce fichier explique comment utiliser le système de configuration pour personnaliser votre image Docker PHP-Apache.
+Ce fichier explique comment utiliser le système de configuration pour personnaliser votre image Docker PHP-Apache avec **mlocati/php-extension-installer**.
 
 ---
 
@@ -15,25 +15,32 @@ La version de PHP à utiliser pour l'image de base.
 - **Exemple** : `"8.3"` utilisera l'image `php:8.3-apache-bookworm`
 - **Versions disponibles** : Consultez [Docker Hub - PHP](https://hub.docker.com/_/php) pour les versions disponibles
 
-### `system_dependencies`
-Liste des paquets système à installer avec `apt-get`.
-- Ces bibliothèques sont nécessaires pour compiler certaines extensions PHP
-- **Exemple** : `libpng-dev` est nécessaire pour l'extension GD (traitement d'images)
+### `system_tools`
+Liste des outils système à installer avec `apt-get`.
+- **Outils recommandés** :
+  - `git` : gestion de version
+  - `curl` : téléchargements HTTP
+  - `unzip`, `zip` : gestion des archives
+
+**Note** : Les bibliothèques de développement (`-dev`) ne sont **plus nécessaires**. Le système `mlocati/php-extension-installer` les gère automatiquement.
 
 ### `php_extensions`
-Extensions PHP natives à installer avec `docker-php-ext-install`.
-- **Exemples courants** :
-  - `pdo_mysql`, `mysqli` : pour MySQL/MariaDB
-  - `gd` : traitement d'images
-  - `zip` : gestion des archives
-  - `intl` : internationalisation
+**Toutes** les extensions PHP (Core + PECL) à installer.
 
-### `pecl_extensions`
-Extensions PHP disponibles via PECL (PHP Extension Community Library).
-- **Exemples** :
-  - `imagick` : traitement d'images avancé (ImageMagick)
-  - `apcu` : cache en mémoire
-  - `redis` : client Redis
+**Avantage** : [mlocati/php-extension-installer](https://github.com/mlocati/docker-php-extension-installer) gère automatiquement :
+- Les dépendances système nécessaires
+- La compilation pour AMD64 et ARM64
+- L'activation des extensions
+
+**Extensions courantes** :
+- **Base de données** : `pdo_mysql`, `mysqli`, `pdo_pgsql`
+- **Images** : `gd`, `imagick`
+- **Archives** : `zip`
+- **Internationalisation** : `intl`, `gettext`
+- **Performance** : `opcache`, `apcu`
+- **Autres** : `soap`, `ldap`, `bcmath`, `sockets`
+
+**Liste complète** : [Extensions disponibles](https://github.com/mlocati/docker-php-extension-installer#supported-php-extensions)
 
 ### `php_ini_settings`
 Paramètres de configuration PHP (équivalent du fichier `php.ini`).
@@ -42,6 +49,7 @@ Paramètres de configuration PHP (équivalent du fichier `php.ini`).
   - `upload_max_filesize` : taille maximale d'un fichier uploadé
   - `post_max_size` : taille maximale des données POST
   - `max_execution_time` : durée maximale d'exécution d'un script (en secondes)
+  - `date.timezone` : fuseau horaire par défaut
 
 ---
 
@@ -52,17 +60,19 @@ Paramètres de configuration PHP (équivalent du fichier `php.ini`).
 1. Modifiez `config.json` selon vos besoins
 2. Commitez et poussez sur la branche `main`
 3. GitHub Actions va automatiquement :
-   - Générer le `dockerfile` à partir du template
-   - Construire l'image pour `linux/amd64` et `linux/arm64`
+   - Vérifier le flag `[skip ci]` dans le message de commit
+   - Incrémenter automatiquement la version PATCH
+   - Générer le `dockerfile` à partir du template (avec mises à jour de sécurité)
+   - Configurer QEMU pour l'émulation ARM64
+   - Construire l'image pour `linux/amd64` et `linux/arm64` **sans cache** (garantit les derniers correctifs)
    - Publier l'image sur `ghcr.io/mouette03/webapp` avec les tags :
      - `:latest` (dernière version)
-     - `:X` (numéro de build auto-incrémenté)
-     - `:sha-xxxxxx` (hash du commit)
+     - `:vX.Y.Z` (version sémantique)
+   - Nettoyer les anciennes images non-taggées
 
 ### Local (Test)
 
-Si vous avez Python installé localement :
-
+**Avec Python** :
 ```bash
 # Générer le dockerfile
 python generate_dockerfile.py
@@ -74,13 +84,93 @@ docker build -t mon-image-test .
 docker run -p 8080:80 mon-image-test
 ```
 
+**Avec PowerShell (Windows)** :
+```powershell
+# Générer le dockerfile
+.\generate_dockerfile.ps1
+
+# Construire l'image
+docker build -t mon-image-test .
+
+# Tester l'image
+docker run -p 8080:80 mon-image-test
+```
+
+---
+
+## 🔒 Améliorations de Sécurité Intégrées
+
+Le template `dockerfile.template` inclut automatiquement :
+
+### Mises à jour de sécurité système
+```dockerfile
+apt-get update && apt-get upgrade -y
+```
+Applique tous les correctifs de sécurité disponibles pour Apache, libxml2, et autres composants système.
+
+**Important** : Les builds sont effectués **sans cache** (`no-cache: true`) pour garantir que `apt-get upgrade` récupère toujours les dernières versions. Cela évite d'utiliser des paquets mis en cache qui pourraient être vulnérables.
+
+### Installation sécurisée avec mlocati
+```dockerfile
+COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
+```
+Utilise l'installateur officiel qui :
+- Installe les bibliothèques système à jour
+- Compile les extensions avec les versions patchées
+- Fonctionne de manière fiable sur AMD64 et ARM64
+
+### Nettoyage optimisé
+```dockerfile
+apt-get clean && rm -rf /var/lib/apt/lists/*
+```
+Réduit la taille de l'image et la surface d'attaque potentielle.
+
+### Protection Apache CVE-2025-23048
+Commentaires de configuration pour mitiger les vulnérabilités connues si SSL est activé.
+
+### Configuration sécurisée via HEREDOC
+Utilisation de la syntaxe HEREDOC pour une configuration plus lisible et moins sujette aux erreurs.
+
+---
+
+## 📝 Exemple de `config.json`
+
+```json
+{
+  "php_version": "8.3",
+  "system_tools": [
+    "git",
+    "curl",
+    "unzip",
+    "zip"
+  ],
+  "php_extensions": [
+    "gd",
+    "zip",
+    "pdo_mysql",
+    "mysqli",
+    "intl",
+    "imagick",
+    "apcu"
+  ],
+  "php_ini_settings": {
+    "memory_limit": "256M",
+    "upload_max_filesize": "64M",
+    "post_max_size": "80M",
+    "max_execution_time": "300",
+    "date.timezone": "UTC"
+  }
+}
+```
+
 ---
 
 ## ⚠️ Notes Importantes
 
 - **Format JSON** : Le fichier `config.json` ne supporte PAS les commentaires. Utilisez uniquement la syntaxe JSON valide.
 - **Encodage** : Les fichiers sont en UTF-8.
-- **Dépendances** : Si vous ajoutez une extension PHP, vérifiez qu'elle ne nécessite pas de dépendances système supplémentaires.
+- **Extensions** : Toutes les extensions (Core et PECL) vont dans `php_extensions`. Pas besoin de distinguer !
+- **Dépendances automatiques** : mlocati installe automatiquement les bibliothèques système nécessaires.
 
 ---
 
@@ -91,8 +181,12 @@ docker run -p 8080:80 mon-image-test
 - **Solution** : Vérifiez que GitHub Actions exécute bien le script avant la construction
 
 ### Extension PHP ne s'installe pas
-- **Cause** : Dépendance système manquante
-- **Solution** : Ajoutez la bibliothèque nécessaire dans `system_dependencies`
+- **Cause** : Extension non supportée par mlocati ou nom incorrect
+- **Solution** : Vérifiez la [liste des extensions supportées](https://github.com/mlocati/docker-php-extension-installer#supported-php-extensions)
+
+### Build lent sur ARM64
+- **Cause** : Émulation QEMU plus lente que natif
+- **Solution** : Normal, le cache GitHub Actions accélère les builds suivants
 
 ### Erreur de parsing JSON
 - **Cause** : Syntaxe JSON invalide (virgule manquante, guillemets, etc.)

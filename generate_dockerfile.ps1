@@ -7,30 +7,25 @@ $template = Get-Content "dockerfile.template" -Raw -Encoding UTF8
 # Remplace PHP_VERSION
 $dockerfile = $template -replace '%%PHP_VERSION%%', $config.php_version
 
-# Remplace SYSTEM_DEPENDENCIES avec indentation correcte
-$systemDeps = ($config.system_dependencies | ForEach-Object { "    $_" }) -join " \`n"
-$dockerfile = $dockerfile -replace '%%SYSTEM_DEPENDENCIES%%', $systemDeps
+# Remplace SYSTEM_TOOLS avec indentation correcte
+$systemTools = ($config.system_tools | ForEach-Object { "    $_ \" }) -join "`n"
+$dockerfile = $dockerfile -replace '%%SYSTEM_TOOLS%%', $systemTools
 
-# Remplace PHP_EXTENSIONS avec indentation correcte
-$phpExts = ($config.php_extensions | ForEach-Object { "    $_" }) -join " \`n"
+# Remplace PHP_EXTENSIONS (Core + PECL ensemble, sans backslash)
+$phpExts = ($config.php_extensions | ForEach-Object { "    $_" }) -join "`n"
 $dockerfile = $dockerfile -replace '%%PHP_EXTENSIONS%%', $phpExts
 
-# Remplace PECL_EXTENSIONS
-$peclExts = $config.pecl_extensions -join " "
-$dockerfile = $dockerfile -replace '%%PECL_EXTENSIONS%%', $peclExts
-
-# Remplace PHP_INI_SETTINGS
-$phpIniCommands = @()
+# Remplace PHP_INI_SETTINGS (format INI simple)
+$phpIniLines = @()
 foreach ($setting in $config.php_ini_settings.PSObject.Properties) {
-    # Ajoute des guillemets pour date.timezone (format original)
     if ($setting.Name -eq 'date.timezone') {
-        $phpIniCommands += "echo '$($setting.Name) = `"$($setting.Value)`"' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini"
+        $phpIniLines += "$($setting.Name) = `"$($setting.Value)`""
     } else {
-        $phpIniCommands += "echo '$($setting.Name) = $($setting.Value)' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini"
+        $phpIniLines += "$($setting.Name) = $($setting.Value)"
     }
 }
-$phpIniString = $phpIniCommands -join " && \`n    "
-$dockerfile = $dockerfile -replace '%%PHP_INI_SETTINGS%%', $phpIniString
+$phpIniContent = $phpIniLines -join "`n"
+$dockerfile = $dockerfile -replace '%%PHP_INI_SETTINGS%%', $phpIniContent
 
 # Écrit le Dockerfile
 $dockerfile | Out-File -FilePath "dockerfile" -Encoding UTF8 -NoNewline

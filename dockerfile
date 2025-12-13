@@ -1,40 +1,29 @@
-﻿FROM php:8.3-apache-bookworm
+﻿# syntax=docker/dockerfile:1
+FROM php:8.3-apache-bookworm
 
 # =========================================================================
-# ÉTAPE 1: Mises à jour de sécurité et Dépendances système
+# ÉTAPE 1: Mises à jour de sécurité et Outils système
 # =========================================================================
-# AJOUT CRITIQUE : 'apt-get upgrade' force la mise à jour des libs vulnérables (Apache, Libxml2...)
-# déjà présentes dans l'image de base.
+# - 'upgrade': Corrige les failles critiques (Apache, Libxml2...)
+# - 'install': Ajoute les outils utilitaires (git, zip...)
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    libfreetype6-dev \
-    libjpeg62-turbo-dev \
-    libpng-dev \
-    libzip-dev \
-    libicu-dev \
-    libxml2-dev \
-    libxslt-dev \
-    libldap2-dev \
-    libmagickwand-dev \
-    libcurl4-openssl-dev \
-    libonig-dev \
-    zlib1g-dev \
-    gettext \
     git \
     curl \
     unzip \
     zip \
-    pkg-config \
-    # Nettoyage pour réduire la taille
+    # Nettoyage immédiat pour garder l'image légère
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # =========================================================================
-# ÉTAPE 2: Extensions PHP
+# ÉTAPE 2: Installation Robuste des Extensions PHP (Core + PECL)
 # =========================================================================
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd
+# Utilisation du script officiel mlocati pour gérer la compatibilité ARM64/AMD64
+# Cela remplace 'docker-php-ext-install' et 'pecl install' qui plantaient sur ARM
+COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
 
-RUN docker-php-ext-install -j$(nproc) \
+RUN install-php-extensions \
+    gd \
     zip \
     pdo_mysql \
     mysqli \
@@ -49,40 +38,46 @@ RUN docker-php-ext-install -j$(nproc) \
     sockets \
     fileinfo \
     xml \
-    gettext
+    gettext \
+    imagick \
+    apcu
 
 # =========================================================================
-# ÉTAPE 3: Extensions PECL
+# ÉTAPE 3: Configuration Apache
 # =========================================================================
-# Note : La recompilation d'Imagick utilisera maintenant les libs système à jour
-RUN pecl install imagick apcu \
-    && docker-php-ext-enable imagick apcu
+# Activation des modules requis
+RUN a2enmod rewrite headers expires deflate
+
+# Configuration du VirtualHost via Heredoc (Méthode 3 - Plus lisible)
+COPY <<EOF /etc/apache2/sites-available/000-default.conf
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
+    <Directory /var/www/html>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
 
 # =========================================================================
-# ÉTAPE 4: Config Apache + PHP
+# ÉTAPE 4: Configuration PHP Personnalisée
 # =========================================================================
-# Activation de SSLStrictSNIVHostCheck recommandée pour mitiger CVE-2025-23048 si SSL est utilisé
-RUN a2enmod rewrite headers expires deflate \
-    && { \
-        echo '<VirtualHost *:80>'; \
-        echo '    ServerAdmin webmaster@localhost'; \
-        echo '    DocumentRoot /var/www/html'; \
-        echo '    <Directory /var/www/html>'; \
-        echo '        Options Indexes FollowSymLinks'; \
-        echo '        AllowOverride All'; \
-        echo '        Require all granted'; \
-        echo '    </Directory>'; \
-        echo '    ErrorLog ${APACHE_LOG_DIR}/error.log'; \
-        echo '    CustomLog ${APACHE_LOG_DIR}/access.log combined'; \
-        echo '</VirtualHost>'; \
-    } > /etc/apache2/sites-available/000-default.conf
+# Création du fichier de configuration prioritaire via Heredoc
+COPY <<EOF /usr/local/etc/php/conf.d/zz-custom-settings.ini
+file_uploads = On
+memory_limit = 256M
+upload_max_filesize = 64M
+post_max_size = 80M
+max_execution_time = 300
+date.timezone = "UTC"
+EOF
 
-RUN echo 'file_uploads = On' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
-    echo 'memory_limit = 256M' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
-    echo 'upload_max_filesize = 64M' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
-    echo 'post_max_size = 80M' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
-    echo 'max_execution_time = 300' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini && \
-    echo 'date.timezone = "UTC"' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini
-
+# =========================================================================
+# ÉTAPE 5: Finition
+# =========================================================================
 WORKDIR /var/www/html
 EXPOSE 80

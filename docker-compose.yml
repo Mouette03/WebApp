@@ -3,11 +3,11 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
       platforms:
         - linux/amd64
         - linux/arm64
-    container_name: php-apache-full
+    container_name: php-apache-webapp
     ports:
       - "8080:80"
     volumes:

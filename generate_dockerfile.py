@@ -15,35 +15,27 @@ with open('dockerfile.template', 'r', encoding='utf-8') as f:
 # Remplace la version de PHP.
 dockerfile_content = template.replace('%%PHP_VERSION%%', config['php_version'])
 
-# Remplace la liste des dépendances système.
-# Chaque élément est indenté de 4 espaces et se termine par un backslash (sauf le dernier).
-system_deps = '\n'.join(f"    {dep} \\" for dep in config['system_dependencies'])
-# Retire le dernier backslash
-system_deps = system_deps.rstrip(' \\')
-dockerfile_content = dockerfile_content.replace('%%SYSTEM_DEPENDENCIES%%', system_deps)
+# Remplace la liste des outils système.
+# Chaque élément est indenté de 4 espaces et se termine par un backslash.
+system_tools = '\n'.join(f"    {tool} \\" for tool in config['system_tools'])
+dockerfile_content = dockerfile_content.replace('%%SYSTEM_TOOLS%%', system_tools)
 
-# Remplace la liste des extensions PHP.
-# Chaque élément est indenté de 4 espaces et se termine par un backslash (sauf le dernier).
-php_exts = '\n'.join(f"    {ext} \\" for ext in config['php_extensions'])
-# Retire le dernier backslash
-php_exts = php_exts.rstrip(' \\')
+# Remplace la liste des extensions PHP (Core + PECL ensemble avec mlocati).
+# Chaque élément est indenté de 4 espaces, sans backslash (mlocati gère la liste différemment)
+php_exts = '\n'.join(f"    {ext}" for ext in config['php_extensions'])
 dockerfile_content = dockerfile_content.replace('%%PHP_EXTENSIONS%%', php_exts)
 
-# Remplace la liste des extensions PECL (sur une seule ligne, séparées par des espaces).
-dockerfile_content = dockerfile_content.replace('%%PECL_EXTENSIONS%%', ' '.join(config['pecl_extensions']))
-
-# Crée une série de commandes 'echo' pour chaque paramètre de php.ini.
-# Ces commandes sont enchaînées avec &&.
-php_ini_settings = []
+# Crée le contenu du fichier php.ini avec les paramètres.
+php_ini_lines = []
 for key, value in config['php_ini_settings'].items():
-    # Ajoute des guillemets pour date.timezone (format original)
+    # Format simple : key = value
     if key == 'date.timezone':
-        php_ini_settings.append(f"echo '{key} = \"{value}\"' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini")
+        php_ini_lines.append(f'{key} = "{value}"')
     else:
-        php_ini_settings.append(f"echo '{key} = {value}' >> /usr/local/etc/php/conf.d/zz-custom-settings.ini")
+        php_ini_lines.append(f'{key} = {value}')
 
-php_ini_commands = ' && \\\n    '.join(php_ini_settings) if php_ini_settings else 'true'
-dockerfile_content = dockerfile_content.replace('%%PHP_INI_SETTINGS%%', php_ini_commands)
+php_ini_content = '\n'.join(php_ini_lines) if php_ini_lines else ''
+dockerfile_content = dockerfile_content.replace('%%PHP_INI_SETTINGS%%', php_ini_content)
 
 # Ouvre (ou crée) le fichier 'dockerfile' en mode écriture ('w').
 with open('dockerfile', 'w', encoding='utf-8') as f:

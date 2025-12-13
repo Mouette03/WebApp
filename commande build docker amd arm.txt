@@ -1,1 +1,13 @@
-docker buildx build --platform linux/amd64,linux/arm64 -t ton_nom_utilisateur/php-apache-full:latest --push .
+# Build manuel multi-architecture (AMD64 + ARM64)
+# Note : GitHub Actions s'occupe automatiquement du build et du push
+
+# Build local sans push (test uniquement)
+docker buildx build --platform linux/amd64,linux/arm64 -t webapp:local .
+
+# Build et push vers GitHub Container Registry
+# Remplacer 'mouette03' par votre nom d'utilisateur GitHub
+docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/mouette03/webapp:latest --push .
+
+# Vérifier que le dockerfile a été généré avant le build
+# PowerShell : .\generate_dockerfile.ps1
+# Python : python generate_dockerfile.py

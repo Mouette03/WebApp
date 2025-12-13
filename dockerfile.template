@@ -1,52 +1,58 @@
+# syntax=docker/dockerfile:1
 FROM php:%%PHP_VERSION%%-apache-bookworm
 
 # =========================================================================
-# ÉTAPE 1: Mises à jour de sécurité et Dépendances système
+# ÉTAPE 1: Mises à jour de sécurité et Outils système
 # =========================================================================
-# AJOUT CRITIQUE : 'apt-get upgrade' force la mise à jour des libs vulnérables (Apache, Libxml2...)
-# déjà présentes dans l'image de base.
+# - 'upgrade': Corrige les failles critiques (Apache, Libxml2...)
+# - 'install': Ajoute les outils utilitaires
+# Nettoyage (apt-get clean) pour réduire la taille de l'image.
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-%%SYSTEM_DEPENDENCIES%% \
-    # Nettoyage pour réduire la taille
+%%SYSTEM_TOOLS%% \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # =========================================================================
-# ÉTAPE 2: Extensions PHP
+# ÉTAPE 2: Installation Robuste des Extensions PHP (Core + PECL)
 # =========================================================================
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd
+# Utilisation du script officiel mlocati pour gérer la compatibilité ARM64/AMD64
+# Cela remplace 'docker-php-ext-install' et 'pecl install' qui plantaient sur ARM
+COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
 
-RUN docker-php-ext-install -j$(nproc) \
+RUN install-php-extensions \
 %%PHP_EXTENSIONS%%
 
 # =========================================================================
-# ÉTAPE 3: Extensions PECL
-# =========================================================================
-# Note : La recompilation d'Imagick utilisera maintenant les libs système à jour
-RUN pecl install %%PECL_EXTENSIONS%% \
-    && docker-php-ext-enable %%PECL_EXTENSIONS%%
-
-# =========================================================================
-# ÉTAPE 4: Config Apache + PHP
+# ÉTAPE 3: Configuration Apache
 # =========================================================================
 # Activation de SSLStrictSNIVHostCheck recommandée pour mitiger CVE-2025-23048 si SSL est utilisé
-RUN a2enmod rewrite headers expires deflate \
-    && { \
-        echo '<VirtualHost *:80>'; \
-        echo '    ServerAdmin webmaster@localhost'; \
-        echo '    DocumentRoot /var/www/html'; \
-        echo '    <Directory /var/www/html>'; \
-        echo '        Options Indexes FollowSymLinks'; \
-        echo '        AllowOverride All'; \
-        echo '        Require all granted'; \
-        echo '    </Directory>'; \
-        echo '    ErrorLog ${APACHE_LOG_DIR}/error.log'; \
-        echo '    CustomLog ${APACHE_LOG_DIR}/access.log combined'; \
-        echo '</VirtualHost>'; \
-    } > /etc/apache2/sites-available/000-default.conf
+RUN a2enmod rewrite headers expires deflate
 
-RUN %%PHP_INI_SETTINGS%%
+# Configuration du VirtualHost via Heredoc (plus lisible que echo)
+COPY <<EOF /etc/apache2/sites-available/000-default.conf
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
+    <Directory /var/www/html>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+EOF
 
+# =========================================================================
+# ÉTAPE 4: Configuration PHP Personnalisée
+# =========================================================================
+# Création du fichier de configuration prioritaire via Heredoc
+COPY <<EOF /usr/local/etc/php/conf.d/zz-custom-settings.ini
+%%PHP_INI_SETTINGS%%
+EOF
+
+# =========================================================================
+# ÉTAPE 5: Finition
+# =========================================================================
 WORKDIR /var/www/html
 EXPOSE 80
