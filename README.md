@@ -155,3 +155,31 @@ Si vous voulez construire et tester l'image localement avant de pusher :
     docker-compose up -d
     ```
     Votre site sera disponible sur [http://localhost:8080](http://localhost:8080).
+
+---
+
+## 📜 Licences & Attributions
+
+Ce projet utilise et remercie les outils open source suivants :
+
+### Outils Tiers
+
+- **[mlocati/php-extension-installer](https://github.com/mlocati/docker-php-extension-installer)**  
+  Licence : [MIT License](https://github.com/mlocati/docker-php-extension-installer/blob/master/LICENSE)  
+  Facilite l'installation des extensions PHP, y compris pour ARM64
+
+- **[PHP Official Docker Images](https://hub.docker.com/_/php)**  
+  Licence : Diverses licences open source ([détails](https://github.com/docker-library/php))  
+  Image de base : `php:8.3-apache-bookworm`
+
+- **GitHub Actions utilisées** :
+  - [actions/checkout](https://github.com/actions/checkout) (MIT)
+  - [docker/setup-qemu-action](https://github.com/docker/setup-qemu-action) (Apache 2.0)
+  - [docker/setup-buildx-action](https://github.com/docker/setup-buildx-action) (Apache 2.0)
+  - [docker/login-action](https://github.com/docker/login-action) (Apache 2.0)
+  - [docker/metadata-action](https://github.com/docker/metadata-action) (Apache 2.0)
+  - [docker/build-push-action](https://github.com/docker/build-push-action) (Apache 2.0)
+
+### Licence de ce Projet
+
+Ce projet est sous licence **GNU General Public License v3.0 (GPL-3.0)**. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
