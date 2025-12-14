@@ -132,22 +132,30 @@ jobs:
           provenance: false
           sbom: false
   # ============================================================
-  # JOB DE NETTOYAGE : Supprime les images untagged orphelines
-  # Délai de 5 minutes pour finaliser les manifests multi-arch
+  # JOB DE NETTOYAGE : DÉSACTIVÉ
   # ============================================================
-  cleanup:
-    needs: build-and-push
-    if: success()
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-    
-    steps:
-      - name: Wait for manifest finalization
-        run: sleep 300  # 5 minutes pour que les manifests soient complètement propagés
-      
-      - name: Delete old untagged images
-        uses: actions/delete-package-versions@v5
+  # Le cleanup automatique corrompt les manifests multi-architecture car il supprime
+  # les layers intermédiaires avant leur complète propagation sur GHCR.
+  # Pour nettoyer manuellement : GitHub Packages UI > Delete old versions
+  #
+  # cleanup:
+  #   needs: build-and-push
+  #   if: success()
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     packages: write
+  #   
+  #   steps:
+  #     - name: Wait for manifest finalization
+  #       run: sleep 300
+  #     
+  #     - name: Delete old untagged images
+  #       uses: actions/delete-package-versions@v5
+  #       with:
+  #         package-name: ${{ github.event.repository.name }}
+  #         package-type: 'container'
+  #         min-versions-to-keep: 0
+  #         delete-only-untagged-versions: 'true'
         with:
           package-name: ${{ github.event.repository.name }}
           package-type: 'container'
