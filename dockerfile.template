@@ -2,6 +2,15 @@
 FROM php:%%PHP_VERSION%%-apache-bookworm
 
 # =========================================================================
+# Métadonnées de l'image
+# =========================================================================
+LABEL org.opencontainers.image.title="PHP Apache Multi-Arch" \
+      org.opencontainers.image.description="Image PHP 8.3 + Apache multi-architecture (AMD64/ARM64) avec extensions CMS (WordPress, Nextcloud, Joomla) et sécurité renforcée" \
+      org.opencontainers.image.vendor="Mouette03" \
+      org.opencontainers.image.licenses="GPL-3.0" \
+      org.opencontainers.image.source="https://github.com/Mouette03/WebApp"
+
+# =========================================================================
 # ÉTAPE 1: Mises à jour de sécurité et Outils système
 # =========================================================================
 # - 'upgrade': Corrige les failles critiques (Apache, Libxml2...)
