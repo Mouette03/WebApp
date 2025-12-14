@@ -126,20 +126,20 @@ jobs:
           provenance: false
           sbom: false
   # ============================================================
-  # JOB DE NETTOYAGE : Supprime les images untagged orphelines
+  # JOB DE NETTOYAGE : Désactivé car peut corrompre les manifests multi-arch
   # ============================================================
-  cleanup:
-    needs: build-and-push
-    if: success()
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-    
-    steps:
-      - name: Delete old untagged images
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: ${{ github.event.repository.name }}
-          package-type: 'container'
-          min-versions-to-keep: 0
-          delete-only-untagged-versions: 'true'
+  # cleanup:
+  #   needs: build-and-push
+  #   if: success()
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     packages: write
+  #   
+  #   steps:
+  #     - name: Delete old untagged images
+  #       uses: actions/delete-package-versions@v5
+  #       with:
+  #         package-name: ${{ github.event.repository.name }}
+  #         package-type: 'container'
+  #         min-versions-to-keep: 0
+  #         delete-only-untagged-versions: 'true'
