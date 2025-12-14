@@ -119,6 +119,12 @@ jobs:
           tags: |
             ghcr.io/${{ env.IMAGE_NAME }}:latest
             ghcr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
+          # Labels OCI dynamiques (version, date, git SHA)
+          labels: |
+            org.opencontainers.image.version=${{ env.IMAGE_VERSION_SHORT }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
           # Cache désactivé pour toujours récupérer les derniers correctifs de sécurité
           # apt-get upgrade -y dans le Dockerfile nécessite un build sans cache
           no-cache: true
