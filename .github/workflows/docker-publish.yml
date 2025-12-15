@@ -125,6 +125,16 @@ jobs:
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.url=https://github.com/${{ github.repository }}
+          # Annotations pour manifests multi-arch (affichage GHCR)
+          annotations: |
+            org.opencontainers.image.title=PHP Apache Multi-Arch
+            org.opencontainers.image.description=Image PHP 8.3 + Apache multi-architecture (AMD64/ARM64) avec extensions CMS (WordPress, Nextcloud, Joomla) et sécurité renforcée
+            org.opencontainers.image.vendor=Mouette03
+            org.opencontainers.image.licenses=GPL-3.0
+            org.opencontainers.image.source=https://github.com/Mouette03/WebApp
+            org.opencontainers.image.version=${{ env.IMAGE_VERSION_SHORT }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            org.opencontainers.image.revision=${{ github.sha }}
           # Cache désactivé pour toujours récupérer les derniers correctifs de sécurité
           # apt-get upgrade -y dans le Dockerfile nécessite un build sans cache
           no-cache: true
