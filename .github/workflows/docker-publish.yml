@@ -3,11 +3,14 @@ name: Build and Push Docker Image ARM64 & AMD64
 
 # Déclencheurs du workflow.
 on:
-  # Se déclenche automatiquement à chaque push sur la branche "main".
+  # Se déclenche automatiquement à chaque push sur la branche "main" (build de suivi -> tag "beta").
   push:
     branches:
       - "main"
-  # Permet de déclencher manuellement le workflow depuis l'interface de GitHub.
+  # Se déclenche quand une Release GitHub est publiée : c'est le seul cas qui produit le tag "latest".
+  release:
+    types: [published]
+  # Permet de déclencher manuellement le workflow depuis l'interface de GitHub (build de test -> tag "beta").
   workflow_dispatch:
 
 # Liste des jobs à exécuter.
@@ -15,12 +18,15 @@ jobs:
   # Nom du job.
   build-and-push:
     # Skip si le message contient [skip ci], [ci skip], etc.
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
+    # Ce check ne s'applique qu'aux événements "push" (release/workflow_dispatch n'ont pas de head_commit).
+    if: |
+      github.event_name != 'push' ||
+      (!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]'))
     # Machine virtuelle sur laquelle le job va s'exécuter.
     runs-on: ubuntu-latest
     # Permissions nécessaires pour ce job.
     permissions:
-      contents: write  # Permission de lire ET écrire le contenu (pour commiter la nouvelle version).
+      contents: read   # Lecture seule : plus aucun commit automatique dans le repo.
       packages: write  # Permission d'écrire des packages (pour publier l'image sur ghcr.io).
 
     # Étapes du job.
@@ -28,12 +34,9 @@ jobs:
       # 1. Récupère le code source de votre dépôt.
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2  # Récupère les 2 derniers commits pour comparer
 
       # 2. Se connecte au GitHub Container Registry (ghcr.io).
       - name: Log in to the GitHub Container Registry
-
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -41,75 +44,49 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 4. Configure QEMU pour l'émulation ARM64
+      # 3. Configure QEMU pour l'émulation ARM64
       - name: Set up QEMU
-
         uses: docker/setup-qemu-action@v3
         with:
           platforms: linux/amd64,linux/arm64
 
-      # 5. Met en place Docker Buildx avec plateformes optimisées
+      # 4. Met en place Docker Buildx avec plateformes optimisées
       - name: Set up Docker Buildx
-
         uses: docker/setup-buildx-action@v3
 
-      # 6. Prépare les métadonnées de l'image (nom en minuscule + version sémantique auto-incrémentée).
+      # 5. Prépare les métadonnées de l'image.
+      # Release publiée -> tag "latest" + le tag Git de la release (ex: v2.5.0).
+      # Push sur main ou workflow_dispatch manuel -> tag "beta" + "beta-<sha court>", jamais "latest".
       - name: Prepare image metadata
-
         run: |
           IMAGE_NAME=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
-          
-          # Lit la version actuelle
-          CURRENT_VERSION=$(cat VERSION)
-          
-          # Découpe la version en MAJOR.MINOR.PATCH
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-          
-          # Cas spécial : 0.0.0 → 1.0.0 (initialisation)
-          if [ "$CURRENT_VERSION" = "0.0.0" ]; then
-            NEW_VERSION="1.0.0"
-          # Cas spécial : X.9.999 → (X+1).0.0 (changement majeur)
-          elif [ "$MINOR" = "9" ] && [ "$PATCH" = "999" ]; then
-            NEW_MAJOR=$((MAJOR + 1))
-            NEW_VERSION="${NEW_MAJOR}.0.0"
-          # Cas spécial : X.Y.999 → X.(Y+1).0 (changement mineur)
-          elif [ "$PATCH" = "999" ]; then
-            NEW_MINOR=$((MINOR + 1))
-            NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
-          else
-            # Incrémentation normale du PATCH
-            NEW_PATCH=$((PATCH + 1))
-            NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-          fi
-          
-          # Sauvegarde la nouvelle version
-          echo "$NEW_VERSION" > VERSION
-          
           echo "IMAGE_NAME=${IMAGE_NAME}" >> "$GITHUB_ENV"
-          echo "IMAGE_VERSION=v${NEW_VERSION}" >> "$GITHUB_ENV"
-          echo "IMAGE_VERSION_SHORT=${NEW_VERSION}" >> "$GITHUB_ENV"
-          echo "OLD_VERSION=${CURRENT_VERSION}" >> "$GITHUB_ENV"
-          
-          echo "✅ Version incrémentée : ${CURRENT_VERSION} → ${NEW_VERSION}"
-      
-      # 7. Commite la nouvelle version dans le dépôt
-      - name: Commit new version
 
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add VERSION
-          git commit -m "chore: bump version ${{ env.OLD_VERSION }} → ${{ env.IMAGE_VERSION_SHORT }} [skip ci]" || echo "No changes to commit"
-          git push || echo "Nothing to push"
+          if [ "${{ github.event_name }}" = "release" ]; then
+            RELEASE_VERSION="${{ github.event.release.tag_name }}"
+            RELEASE_VERSION_SHORT="${RELEASE_VERSION#v}"
 
-      # 8. Génère le Dockerfile à partir du template et du fichier de configuration.
+            echo "BUILD_TAG=latest" >> "$GITHUB_ENV"
+            echo "IMAGE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+            echo "IMAGE_VERSION_SHORT=${RELEASE_VERSION_SHORT}" >> "$GITHUB_ENV"
+
+            echo "✅ Build de release : ${RELEASE_VERSION} → tag latest"
+          else
+            SHORT_SHA=$(git rev-parse --short HEAD)
+
+            echo "BUILD_TAG=beta" >> "$GITHUB_ENV"
+            echo "IMAGE_VERSION=beta-${SHORT_SHA}" >> "$GITHUB_ENV"
+            echo "IMAGE_VERSION_SHORT=beta-${SHORT_SHA}" >> "$GITHUB_ENV"
+
+            echo "🧪 Build beta : commit ${SHORT_SHA} (tag: beta, pas de latest)"
+          fi
+
+      # 6. Génère le Dockerfile à partir du template et du fichier de configuration.
       - name: Generate Dockerfile
-
         run: python3 generate_dockerfile.py
 
-      # 9. Construit l'image Docker et la publie sur le GitHub Container Registry.
+      # 7. Construit l'image Docker et la publie sur le GitHub Container Registry.
       - name: Build and push Docker image
-
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -117,7 +94,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}
             ghcr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
           # Labels OCI dynamiques (version, date, git SHA)
           labels: |
