@@ -1,37 +1,37 @@
-# Nom du workflow qui s'affichera dans l'onglet "Actions" de votre dépôt GitHub.
+# Nom du workflow qui s'affichera dans l'onglet "Actions" de votre depot GitHub.
 name: Build and Push Docker Image ARM64 & AMD64
 
-# Déclencheurs du workflow.
+# Declencheurs du workflow.
 on:
-  # Se déclenche automatiquement à chaque push sur la branche "main" (build de suivi -> tag "beta").
+  # Se declenche automatiquement a chaque push sur la branche "main" (build de suivi -> tag "beta").
   push:
     branches:
       - "main"
-  # Se déclenche quand une Release GitHub est publiée : c'est le seul cas qui produit le tag "latest".
+  # Se declenche quand une Release GitHub est publiee : c'est le seul cas qui produit le tag "latest".
   release:
     types: [published]
-  # Permet de déclencher manuellement le workflow depuis l'interface de GitHub (build de test -> tag "beta").
+  # Permet de declencher manuellement le workflow depuis l'interface de GitHub (build de test -> tag "beta").
   workflow_dispatch:
 
-# Liste des jobs à exécuter.
+# Liste des jobs a executer.
 jobs:
   # Nom du job.
   build-and-push:
     # Skip si le message contient [skip ci], [ci skip], etc.
-    # Ce check ne s'applique qu'aux événements "push" (release/workflow_dispatch n'ont pas de head_commit).
+    # Ce check ne s'applique qu'aux evenements "push" (release/workflow_dispatch n'ont pas de head_commit).
     if: |
       github.event_name != 'push' ||
       (!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]'))
-    # Machine virtuelle sur laquelle le job va s'exécuter.
+    # Machine virtuelle sur laquelle le job va s'executer.
     runs-on: ubuntu-latest
-    # Permissions nécessaires pour ce job.
+    # Permissions necessaires pour ce job.
     permissions:
       contents: read   # Lecture seule : plus aucun commit automatique dans le repo.
-      packages: write  # Permission d'écrire des packages (pour publier l'image sur ghcr.io).
+      packages: write  # Permission d'ecrire des packages (pour publier l'image sur ghcr.io).
 
-    # Étapes du job.
+    # Etapes du job.
     steps:
-      # 1. Récupère le code source de votre dépôt.
+      # 1. Recupere le code source de votre depot.
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -40,22 +40,22 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          # Le nom d'utilisateur est le propriétaire du dépôt, forcé en minuscules.
+          # Le nom d'utilisateur est le proprietaire du depot, force en minuscules.
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. Configure QEMU pour l'émulation ARM64
+      # 3. Configure QEMU pour l'emulation ARM64
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
           platforms: linux/amd64,linux/arm64
 
-      # 4. Met en place Docker Buildx avec plateformes optimisées
+      # 4. Met en place Docker Buildx avec plateformes optimisees
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 5. Prépare les métadonnées de l'image.
-      # Release publiée -> tag "latest" + le tag Git de la release (ex: v2.5.0).
+      # 5. Prepare les metadonnees de l'image.
+      # Release publiee -> tag "latest" + le tag Git de la release (ex: v2.5.0).
       # Push sur main ou workflow_dispatch manuel -> tag "beta" + "beta-<sha court>", jamais "latest".
       - name: Prepare image metadata
         run: |
@@ -70,7 +70,7 @@ jobs:
             echo "IMAGE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
             echo "IMAGE_VERSION_SHORT=${RELEASE_VERSION_SHORT}" >> "$GITHUB_ENV"
 
-            echo "✅ Build de release : ${RELEASE_VERSION} → tag latest"
+            echo "Build de release : ${RELEASE_VERSION} -> tag latest"
           else
             SHORT_SHA=$(git rev-parse --short HEAD)
 
@@ -78,16 +78,16 @@ jobs:
             echo "IMAGE_VERSION=beta-${SHORT_SHA}" >> "$GITHUB_ENV"
             echo "IMAGE_VERSION_SHORT=beta-${SHORT_SHA}" >> "$GITHUB_ENV"
 
-            echo "🧪 Build beta : commit ${SHORT_SHA} (tag: beta, pas de latest)"
+            echo "Build beta : commit ${SHORT_SHA} (tag: beta, pas de latest)"
           fi
 
-      # 6. Génère le Dockerfile à partir du template et du fichier de configuration.
+      # 6. Genere le Dockerfile a partir du template et du fichier de configuration.
       - name: Generate Dockerfile
         run: python3 generate_dockerfile.py
 
       # 7. Construit l'image Docker et la publie sur le GitHub Container Registry.
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./dockerfile
@@ -102,17 +102,17 @@ jobs:
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.url=https://github.com/${{ github.repository }}
-          # Cache désactivé pour toujours récupérer les derniers correctifs de sécurité
-          # apt-get upgrade -y dans le Dockerfile nécessite un build sans cache
+          # Cache desactive pour toujours recuperer les derniers correctifs de securite
+          # apt-get upgrade -y dans le Dockerfile necessite un build sans cache
           no-cache: true
-          # Supprimer métadonnées supplémentaires
+          # Supprimer metadonnees supplementaires
           provenance: false
           sbom: false
   # ============================================================
-  # JOB DE NETTOYAGE : DÉSACTIVÉ
+  # JOB DE NETTOYAGE : DESACTIVE
   # ============================================================
   # Le cleanup automatique corrompt les manifests multi-architecture car il supprime
-  # les layers intermédiaires avant leur complète propagation sur GHCR.
+  # les layers intermediaires avant leur complete propagation sur GHCR.
   # Pour nettoyer manuellement : GitHub Packages UI > Delete old versions
   #
   # cleanup:
