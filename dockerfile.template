@@ -40,6 +40,7 @@ RUN a2enmod rewrite headers expires deflate
 # Configuration du VirtualHost via Heredoc (plus lisible que echo)
 COPY <<EOF /etc/apache2/sites-available/000-default.conf
 <VirtualHost *:80>
+    ServerName localhost
     ServerAdmin webmaster@localhost
     DocumentRoot /var/www/html
     <Directory /var/www/html>
