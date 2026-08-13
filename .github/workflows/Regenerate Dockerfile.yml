@@ -1,0 +1,17 @@
+name: Regenerate Dockerfile
+on:
+  workflow_dispatch:
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 generate_dockerfile.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dockerfile
+          git commit -m "chore: regenere dockerfile" || echo "Aucun changement"
+          git push
