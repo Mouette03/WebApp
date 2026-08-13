@@ -4,9 +4,9 @@ name: Build and Push Docker Image ARM64 & AMD64
 # Declencheurs du workflow.
 on:
   # Se declenche automatiquement a chaque push sur la branche "main" (build de suivi -> tag "beta").
-  push:
-    branches:
-      - "main"
+  #push:
+    #branches:
+      #- "main"
   # Se declenche quand une Release GitHub est publiee : c'est le seul cas qui produit le tag "latest".
   release:
     types: [published]
