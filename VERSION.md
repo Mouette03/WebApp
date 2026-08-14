@@ -2,62 +2,63 @@
 
 Ce fichier contient la version actuelle de l'image Docker.
 
-## ⚙️ Auto-incrémentation
+> ⚠️ **Ce fichier est desormais purement informatif.** Depuis la simplification
+> du workflow (commit `6d1d9b1e`), la valeur de `VERSION` n'est **plus lue par
+> le pipeline CI** et ne determine plus aucun tag publie. C'est desormais le
+> **tag Git de la Release GitHub** qui fait foi pour la version publiee.
 
-Le numéro de version est **automatiquement incrémenté** à chaque build :
-- À chaque push sur `main`, le numéro **PATCH** (dernier chiffre) est incrémenté automatiquement
-- Exemple : `1.0.5` devient `1.0.6` au prochain build
-- GitHub Actions commite automatiquement la nouvelle version
+## 📦 Contrat de publication actuel
 
-## 🎯 Changement manuel de version
+Le tag publie depend exclusivement de l'evenement qui declenche le workflow :
 
-Le système détecte automatiquement les patterns spéciaux pour les changements majeurs/mineurs :
+| Evenement declencheur | Tag `BUILD_TAG` | Tag `IMAGE_VERSION` | Publie `latest` ? |
+|---|---|---|---|
+| `push` sur `main` | `beta` | `beta-<sha court>` | ❌ Non |
+| `workflow_dispatch` (manuel) | `beta` | `beta-<sha court>` | ❌ Non |
+| `release` publiee (`published`) | `latest` | `<tag Git de la release>` (ex: `v2.5.0`) | ✅ Oui |
 
-**Pour une nouvelle fonctionnalité (MINOR) :**
-- Changez VERSION en `X.Y.999` (ex: `1.0.999`)
-- Le prochain build créera `1.1.0`, puis `1.1.1`, `1.1.2`, etc.
+Concretement :
+- `ghcr.io/mouette03/webapp:latest` n'est publie **que** lors d'une Release GitHub
+- `ghcr.io/mouette03/webapp:beta` et `ghcr.io/mouette03/webapp:beta-<sha>` sont publies a chaque push sur `main` ou build manuel — jamais `latest`
+- La version exacte (`v1.2.3`, etc.) vient du **tag Git associe a la Release**, pas du contenu de ce fichier `VERSION`
 
-**Pour un changement majeur/breaking change (MAJOR) :**
-- Changez VERSION en `X.9.999` (ex: `1.9.999`)
-- Le prochain build créera `2.0.0`, puis `2.0.1`, `2.0.2`, etc.
+## 🎯 Comment publier une nouvelle version stable
 
-**Exemples concrets :**
-- `1.0.999` → `1.1.0` (nouvelle fonctionnalité)
-- `1.9.999` → `2.0.0` (breaking change)
-- `2.9.999` → `3.0.0` (breaking change)
-- `1.5.999` → `1.6.0` (nouvelle fonctionnalité)
+1. Creer une Release GitHub avec un tag semantique, ex. `v1.2.3`
+2. Publier la Release (bouton **Publish release**)
+3. Le workflow se declenche automatiquement sur l'evenement `release.published`
+4. Les tags `ghcr.io/mouette03/webapp:latest` et `ghcr.io/mouette03/webapp:v1.2.3` sont publies
 
-## Format
+Le contenu du fichier `VERSION` n'a pas besoin d'etre modifie au prealable : il n'influence plus le tag genere.
 
-Le format utilisé est le **versionnage sémantique** (semver) : `MAJOR.MINOR.PATCH`
+## 🧪 Comment tester une image beta
 
-- **MAJOR** (1.x.x) : Changements incompatibles (breaking changes) - PHP 8 → PHP 9
-- **MINOR** (x.1.x) : Nouvelles fonctionnalités (ajout d'extensions PHP, etc.)
-- **PATCH** (x.x.1) : Corrections de bugs, ajustements mineurs de configuration *(auto-incrémenté)*
+Un simple push sur `main`, ou un declenchement manuel via **Run workflow** (`workflow_dispatch`) dans l'onglet Actions, publie automatiquement :
+- `ghcr.io/mouette03/webapp:beta` (toujours la derniere beta)
+- `ghcr.io/mouette03/webapp:beta-<sha court du commit>` (traçable, jamais ecrase)
 
-## 📦 Tags créés automatiquement
+## Format de version recommande pour les Releases
 
-À chaque build, GitHub Actions créera 2 tags :
-- `ghcr.io/mouette03/webapp:latest` (toujours la dernière version)
-- `ghcr.io/mouette03/webapp:v1.0.6` (version avec préfixe v)
+Bien que non applique automatiquement, il est recommande de conserver le
+**versionnage semantique** (semver) `MAJOR.MINOR.PATCH` pour le tag de Release :
+
+- **MAJOR** (X.0.0) : Changements incompatibles (breaking changes) — ex. PHP 8 → PHP 9
+- **MINOR** (0.X.0) : Nouvelles fonctionnalites — ex. ajout d'une extension PHP
+- **PATCH** (0.0.X) : Corrections de bugs, ajustements mineurs de configuration
 
 ## 📝 Exemples
 
-**Scénario 1 - Ajustements de config :**
-- Vous modifiez `config.json` et poussez
-- `1.0.5` → `1.0.6` (automatique)
-- Tags : `latest`, `v1.0.6`
+**Scenario 1 — Test rapide d'un changement (beta) :**
+- Vous modifiez `dockerfile.template` ou `config.json` et poussez sur `main`
+- Tags publies : `beta`, `beta-<sha>`
+- `latest` n'est **pas** touche
 
-**Scénario 2 - Nouvelle extension PHP :**
-- Vous modifiez `VERSION` : `1.0.8` → `1.1.0`
-- Vous modifiez `config.json` (ajout extension)
-- Vous poussez
-- Tags : `latest`, `v1.1.0`
-- Au prochain push : Tags : `latest`, `v1.1.1`
+**Scenario 2 — Publication d'une version stable :**
+- Vous creez une Release GitHub avec le tag `v1.1.0`
+- Vous la publiez
+- Tags publies : `latest`, `v1.1.0`
 
-**Scénario 3 - Nouvelle version PHP majeure :**
-- Vous modifiez `VERSION` : `1.5.12` → `2.0.0`
-- Vous modifiez `config.json` (php_version: "9.0")
-- Vous poussez
-- Tags : `latest`, `v2.0.0`
-- Au prochain push : Tags : `latest`, `v2.0.1`
+**Scenario 3 — Nouvelle version majeure (ex. PHP 9) :**
+- Vous mettez a jour `config.json` (`php_version: "9.0"`) sur `main` au prealable (build beta pour tester)
+- Une fois valide, vous creez et publiez une Release taguee `v2.0.0`
+- Tags publies : `latest`, `v2.0.0`

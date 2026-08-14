@@ -1,17 +1,17 @@
-﻿# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1
 FROM php:8.3-apache-bookworm
 
 # =========================================================================
 # ÉTAPE 1: Mises à jour de sécurité et Outils système
 # =========================================================================
 # - 'upgrade': Corrige les failles critiques (Apache, Libxml2...)
-# - 'install': Ajoute les outils utilitaires (git, zip...)
+# - 'install': Ajoute les outils utilitaires
+# Nettoyage (apt-get clean) pour réduire la taille de l'image.
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     git \
     curl \
     unzip \
     zip \
-    # Nettoyage immédiat pour garder l'image légère
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -23,38 +23,25 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
 
 RUN install-php-extensions \
-    gd \
-    zip \
-    pdo_mysql \
-    mysqli \
-    intl \
-    soap \
-    opcache \
-    exif \
-    ldap \
-    mbstring \
-    xsl \
-    bcmath \
-    sockets \
-    fileinfo \
-    xml \
-    gettext \
-    imagick \
-    apcu
+gd zip pdo_mysql mysqli intl soap opcache exif ldap mbstring xsl bcmath sockets fileinfo xml gettext imagick apcu curl bz2 gmp redis
 
 # =========================================================================
 # ÉTAPE 3: Configuration Apache
 # =========================================================================
-# Activation des modules requis
+# Activation de SSLStrictSNIVHostCheck recommandée pour mitiger CVE-2025-23048 si SSL est utilisé
 RUN a2enmod rewrite headers expires deflate
 
-# Configuration du VirtualHost via Heredoc (Méthode 3 - Plus lisible)
+# ServerName global (hors VirtualHost) : c'est le seul emplacement qui supprime
+# effectivement le warning Apache AH00558 au démarrage du serveur.
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Configuration du VirtualHost via Heredoc (plus lisible que echo)
 COPY <<EOF /etc/apache2/sites-available/000-default.conf
 <VirtualHost *:80>
     ServerAdmin webmaster@localhost
     DocumentRoot /var/www/html
     <Directory /var/www/html>
-        Options Indexes FollowSymLinks
+        Options -Indexes +FollowSymLinks
         AllowOverride All
         Require all granted
     </Directory>

@@ -1,141 +1,127 @@
-# Nom du workflow qui s'affichera dans l'onglet "Actions" de votre dépôt GitHub.
+# Nom du workflow qui s'affichera dans l'onglet "Actions" de votre depot GitHub.
 name: Build and Push Docker Image ARM64 & AMD64
 
-# Déclencheurs du workflow.
+# Declencheurs du workflow.
 on:
-  # Se déclenche automatiquement à chaque push sur la branche "main".
-  push:
-    branches:
-      - "main"
-  # Permet de déclencher manuellement le workflow depuis l'interface de GitHub.
+  # Se declenche automatiquement a chaque push sur la branche "main" (build de suivi -> tag "beta").
+  #push:
+    #branches:
+      #- "main"
+  # Se declenche quand une Release GitHub est publiee : c'est le seul cas qui produit le tag "latest".
+  release:
+    types: [published]
+  # Permet de declencher manuellement le workflow depuis l'interface de GitHub (build de test -> tag "beta").
   workflow_dispatch:
 
-# Liste des jobs à exécuter.
+# Liste des jobs a executer.
 jobs:
   # Nom du job.
   build-and-push:
     # Skip si le message contient [skip ci], [ci skip], etc.
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]')"
-    # Machine virtuelle sur laquelle le job va s'exécuter.
+    # Ce check ne s'applique qu'aux evenements "push" (release/workflow_dispatch n'ont pas de head_commit).
+    if: |
+      github.event_name != 'push' ||
+      (!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]'))
+    # Machine virtuelle sur laquelle le job va s'executer.
     runs-on: ubuntu-latest
-    # Permissions nécessaires pour ce job.
+    # Permissions necessaires pour ce job.
     permissions:
-      contents: write  # Permission de lire ET écrire le contenu (pour commiter la nouvelle version).
-      packages: write  # Permission d'écrire des packages (pour publier l'image sur ghcr.io).
+      contents: read   # Lecture seule : plus aucun commit automatique dans le repo.
+      packages: write  # Permission d'ecrire des packages (pour publier l'image sur ghcr.io).
 
-    # Étapes du job.
+    # Etapes du job.
     steps:
-      # 1. Récupère le code source de votre dépôt.
+      # 1. Recupere le code source de votre depot.
+      # persist-credentials: false evite que le token GitHub reste dans .git/config,
+      # ce qui empeche toute fuite accidentelle si .git est inclus dans le contexte Docker.
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Récupère les 2 derniers commits pour comparer
+          persist-credentials: false
 
       # 2. Se connecte au GitHub Container Registry (ghcr.io).
       - name: Log in to the GitHub Container Registry
-
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          # Le nom d'utilisateur est le propriétaire du dépôt, forcé en minuscules.
+          # Le nom d'utilisateur est le proprietaire du depot, force en minuscules.
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 4. Configure QEMU pour l'émulation ARM64
+      # 3. Configure QEMU pour l'emulation ARM64
       - name: Set up QEMU
-
         uses: docker/setup-qemu-action@v3
         with:
           platforms: linux/amd64,linux/arm64
 
-      # 5. Met en place Docker Buildx avec plateformes optimisées
+      # 4. Met en place Docker Buildx avec plateformes optimisees
       - name: Set up Docker Buildx
-
         uses: docker/setup-buildx-action@v3
 
-      # 6. Prépare les métadonnées de l'image (nom en minuscule + version sémantique auto-incrémentée).
+      # 5. Prepare les metadonnees de l'image.
+      # Release publiee -> tag "latest" + le tag Git de la release (ex: v2.5.0).
+      # Push sur main ou workflow_dispatch manuel -> tag "beta" + "beta-<sha court>", jamais "latest".
       - name: Prepare image metadata
-
         run: |
           IMAGE_NAME=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
-          
-          # Lit la version actuelle
-          CURRENT_VERSION=$(cat VERSION)
-          
-          # Découpe la version en MAJOR.MINOR.PATCH
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-          
-          # Cas spécial : 0.0.0 → 1.0.0 (initialisation)
-          if [ "$CURRENT_VERSION" = "0.0.0" ]; then
-            NEW_VERSION="1.0.0"
-          # Cas spécial : X.9.999 → (X+1).0.0 (changement majeur)
-          elif [ "$MINOR" = "9" ] && [ "$PATCH" = "999" ]; then
-            NEW_MAJOR=$((MAJOR + 1))
-            NEW_VERSION="${NEW_MAJOR}.0.0"
-          # Cas spécial : X.Y.999 → X.(Y+1).0 (changement mineur)
-          elif [ "$PATCH" = "999" ]; then
-            NEW_MINOR=$((MINOR + 1))
-            NEW_VERSION="${MAJOR}.${NEW_MINOR}.0"
-          else
-            # Incrémentation normale du PATCH
-            NEW_PATCH=$((PATCH + 1))
-            NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-          fi
-          
-          # Sauvegarde la nouvelle version
-          echo "$NEW_VERSION" > VERSION
-          
           echo "IMAGE_NAME=${IMAGE_NAME}" >> "$GITHUB_ENV"
-          echo "IMAGE_VERSION=v${NEW_VERSION}" >> "$GITHUB_ENV"
-          echo "IMAGE_VERSION_SHORT=${NEW_VERSION}" >> "$GITHUB_ENV"
-          echo "OLD_VERSION=${CURRENT_VERSION}" >> "$GITHUB_ENV"
-          
-          echo "✅ Version incrémentée : ${CURRENT_VERSION} → ${NEW_VERSION}"
-      
-      # 7. Commite la nouvelle version dans le dépôt
-      - name: Commit new version
 
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add VERSION
-          git commit -m "chore: bump version ${{ env.OLD_VERSION }} → ${{ env.IMAGE_VERSION_SHORT }} [skip ci]" || echo "No changes to commit"
-          git push || echo "Nothing to push"
+          # Horodatage UTC toujours valide, quel que soit l'evenement declencheur
+          # (github.event.head_commit.timestamp est vide pour release/workflow_dispatch).
+          echo "IMAGE_CREATED=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_ENV"
 
-      # 8. Génère le Dockerfile à partir du template et du fichier de configuration.
+          if [ "${{ github.event_name }}" = "release" ]; then
+            RELEASE_VERSION="${{ github.event.release.tag_name }}"
+            RELEASE_VERSION_SHORT="${RELEASE_VERSION#v}"
+
+            echo "BUILD_TAG=latest" >> "$GITHUB_ENV"
+            echo "IMAGE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
+            echo "IMAGE_VERSION_SHORT=${RELEASE_VERSION_SHORT}" >> "$GITHUB_ENV"
+
+            echo "Build de release : ${RELEASE_VERSION} -> tag latest"
+          else
+            SHORT_SHA=$(git rev-parse --short HEAD)
+
+            echo "BUILD_TAG=beta" >> "$GITHUB_ENV"
+            echo "IMAGE_VERSION=beta-${SHORT_SHA}" >> "$GITHUB_ENV"
+            echo "IMAGE_VERSION_SHORT=beta-${SHORT_SHA}" >> "$GITHUB_ENV"
+
+            echo "Build beta : commit ${SHORT_SHA} (tag: beta, pas de latest)"
+          fi
+
+      # 6. Genere le Dockerfile a partir du template et du fichier de configuration.
       - name: Generate Dockerfile
-
         run: python3 generate_dockerfile.py
 
-      # 9. Construit l'image Docker et la publie sur le GitHub Container Registry.
+      # 7. Construit l'image Docker et la publie sur le GitHub Container Registry.
       - name: Build and push Docker image
-
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/${{ env.IMAGE_NAME }}:latest
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ env.BUILD_TAG }}
             ghcr.io/${{ env.IMAGE_NAME }}:${{ env.IMAGE_VERSION }}
           # Labels OCI dynamiques (version, date, git SHA)
           labels: |
             org.opencontainers.image.version=${{ env.IMAGE_VERSION_SHORT }}
-            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            org.opencontainers.image.created=${{ env.IMAGE_CREATED }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.url=https://github.com/${{ github.repository }}
-          # Cache désactivé pour toujours récupérer les derniers correctifs de sécurité
-          # apt-get upgrade -y dans le Dockerfile nécessite un build sans cache
+          # Cache desactive pour toujours recuperer les derniers correctifs de securite
+          # apt-get upgrade -y dans le Dockerfile necessite un build sans cache
           no-cache: true
-          # Supprimer métadonnées supplémentaires
-          provenance: false
-          sbom: false
+          # Provenance et SBOM actives : GHCR les supporte, ameliore la tracabilite
+          # de la chaine d'approvisionnement (SLSA provenance + inventaire des composants).
+          provenance: mode=max
+          sbom: true
   # ============================================================
-  # JOB DE NETTOYAGE : DÉSACTIVÉ
+  # JOB DE NETTOYAGE : DESACTIVE
   # ============================================================
   # Le cleanup automatique corrompt les manifests multi-architecture car il supprime
-  # les layers intermédiaires avant leur complète propagation sur GHCR.
+  # les layers intermediaires avant leur complete propagation sur GHCR.
   # Pour nettoyer manuellement : GitHub Packages UI > Delete old versions
   #
   # cleanup:

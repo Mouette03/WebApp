@@ -2,15 +2,6 @@
 FROM php:%%PHP_VERSION%%-apache-bookworm
 
 # =========================================================================
-# Métadonnées de l'image
-# =========================================================================
-LABEL org.opencontainers.image.title="PHP Apache Multi-Arch" \
-      org.opencontainers.image.description="Image PHP 8.3 + Apache multi-architecture (AMD64/ARM64) avec extensions CMS (WordPress, Nextcloud, Joomla) et sécurité renforcée" \
-      org.opencontainers.image.vendor="Mouette03" \
-      org.opencontainers.image.licenses="GPL-3.0" \
-      org.opencontainers.image.source="https://github.com/Mouette03/WebApp"
-
-# =========================================================================
 # ÉTAPE 1: Mises à jour de sécurité et Outils système
 # =========================================================================
 # - 'upgrade': Corrige les failles critiques (Apache, Libxml2...)
@@ -37,13 +28,17 @@ RUN install-php-extensions \
 # Activation de SSLStrictSNIVHostCheck recommandée pour mitiger CVE-2025-23048 si SSL est utilisé
 RUN a2enmod rewrite headers expires deflate
 
+# ServerName global (hors VirtualHost) : c'est le seul emplacement qui supprime
+# effectivement le warning Apache AH00558 au démarrage du serveur.
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
 # Configuration du VirtualHost via Heredoc (plus lisible que echo)
 COPY <<EOF /etc/apache2/sites-available/000-default.conf
 <VirtualHost *:80>
     ServerAdmin webmaster@localhost
     DocumentRoot /var/www/html
     <Directory /var/www/html>
-        Options Indexes FollowSymLinks
+        Options -Indexes +FollowSymLinks
         AllowOverride All
         Require all granted
     </Directory>
