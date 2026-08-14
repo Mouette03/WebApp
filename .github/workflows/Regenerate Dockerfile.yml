@@ -25,6 +25,12 @@ jobs:
             exit 0
           fi
           git commit -m "chore: regenerate dockerfile"
-          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:${GITHUB_REF_NAME}
+
+          REMOTE="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+          # Resync with the remote branch before pushing: a queued run may be
+          # based on a SHA that is no longer the branch tip.
+          git pull --rebase "$REMOTE" "${GITHUB_REF_NAME}"
+          git push "$REMOTE" HEAD:${GITHUB_REF_NAME}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
