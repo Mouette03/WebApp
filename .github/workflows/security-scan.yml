@@ -69,7 +69,7 @@ jobs:
             echo '```'
             cat trivy-report.txt 2>/dev/null || echo 'rapport indisponible'
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Bloque si une CVE CRITIQUE disposant d'un correctif subsiste.
       - name: Trivy gate (fixable CRITICAL)
