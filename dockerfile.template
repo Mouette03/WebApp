@@ -27,14 +27,14 @@ RUN install-php-extensions \
 # ÉTAPE 2 bis: Retrait des outils de compilation (réduction des CVE)
 # =========================================================================
 # L'image officielle php:*-apache garde $PHPIZE_DEPS installé en permanence
-# (gcc, g++, make, libc6-dev -> linux-libc-dev, dpkg-dev, autoconf...).
+# (gcc, g++, cpp, make, libc6-dev -> linux-libc-dev, dpkg-dev, autoconf...).
 # Ces paquets ne servent qu'à compiler des extensions : une fois celles-ci
 # installées, ils sont retirés de l'image finale.
 # 1) Les bibliothèques runtime réellement utilisées par PHP, ses extensions
 #    et Apache (détectées via ldd) sont marquées 'manual' pour être protégées.
-# 2) $PHPIZE_DEPS est purgé avec --auto-remove.
+# 2) $PHPIZE_DEPS et la chaîne gcc/cpp versionnée sont purgés (--auto-remove).
 # 3) Contrôles : aucune bibliothèque manquante et liste des modules PHP
-#    identique avant/après, sinon le build échoue.
+#    identique avant/après, plus aucun compilateur, sinon le build échoue.
 # Conséquence : 'docker-php-ext-install' / 'pecl install' ne sont plus
 # utilisables dans une image dérivée. Ajouter les extensions dans config.json.
 RUN set -eux; \
@@ -45,14 +45,15 @@ RUN set -eux; \
       | xargs -r dpkg-query --search 2>/dev/null \
       | cut -d: -f1 | sort -u \
       | xargs -r apt-mark manual; \
-    apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false $PHPIZE_DEPS libc6-dev linux-libc-dev; \
+    toolchain="$(dpkg -l 'gcc-[0-9]*' 'g++-[0-9]*' 'cpp' 'cpp-[0-9]*' 2>/dev/null | awk '/^ii/ && $2 !~ /-base/ { sub(/:.*/, "", $2); print $2 }')"; \
+    apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false $PHPIZE_DEPS libc6-dev linux-libc-dev $toolchain; \
     if find /usr/local -type f -name '*.so*' -exec ldd '{}' ';' 2>/dev/null | grep -q 'not found'; then \
       echo 'ERREUR : bibliothèque runtime manquante après purge' >&2; exit 1; \
     fi; \
     php -m > /tmp/php-modules.after; \
     diff /tmp/php-modules.before /tmp/php-modules.after; \
-    if dpkg -s linux-libc-dev >/dev/null 2>&1; then \
-      echo 'ERREUR : linux-libc-dev est encore présent' >&2; exit 1; \
+    if dpkg -l gcc g++ 'gcc-[0-9]*' 'g++-[0-9]*' cpp 'cpp-[0-9]*' make libc6-dev linux-libc-dev 2>/dev/null | awk '/^ii/ && $2 !~ /-base/' | grep -q .; then \
+      echo 'ERREUR : outils de compilation encore présents' >&2; exit 1; \
     fi; \
     rm -rf /tmp/php-modules.* /var/lib/apt/lists/* /var/cache/apt/*
 
