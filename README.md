@@ -25,10 +25,11 @@ Les images sont automatiquement construites et publiées sur le [GitHub Containe
 
 Cette image intègre des mesures de sécurité proactives :
 
-- **Mises à jour automatiques** : `apt-get upgrade -y` applique les correctifs de sécurité du système
-- **Installation fiable** : [mlocati/php-extension-installer](https://github.com/mlocati/docker-php-extension-installer) compile les extensions avec les bibliothèques système à jour
+- **Base Debian maintenue** : l'image PHP-Apache est basée sur Debian Trixie et `apt-get upgrade -y` applique les correctifs de sécurité disponibles lors du build
+- **Dépendances de compilation supprimées** : les paquets `*-dev`, compilateurs et outils de build sont purgés après l'installation des extensions PHP
+- **Installation fiable** : [mlocati/php-extension-installer](https://github.com/mlocati/docker-php-extension-installer) est épinglé à une version publiée et compile les extensions avec les bibliothèques système à jour
 - **Protection CVE** : Mitigation CVE-2025-23048 (Apache) via recommandations de configuration
-- **Images optimisées** : Nettoyage automatique (`apt-get clean`) pour réduire la surface d'attaque
+- **Images optimisées** : Nettoyage des caches APT et suppression des dépendances inutilisées pour réduire la taille et la surface d'attaque
 - **Build sans cache** : `no-cache: true` garantit que chaque build récupère les derniers correctifs de sécurité
 - **Multi-architecture robuste** : Compatible AMD64 et ARM64 sans erreurs de compilation
 

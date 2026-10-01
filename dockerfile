@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM php:8.3-apache-bookworm
+FROM php:8.3-apache-trixie
 
 # =========================================================================
 # ÉTAPE 1: Mises à jour de sécurité et Outils système
@@ -20,10 +20,18 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
 # =========================================================================
 # Utilisation du script officiel mlocati pour gérer la compatibilité ARM64/AMD64
 # Cela remplace 'docker-php-ext-install' et 'pecl install' qui plantaient sur ARM
-COPY --from=mlocati/php-extension-installer:latest /usr/bin/install-php-extensions /usr/local/bin/
+COPY --from=mlocati/php-extension-installer:2.11.33 /usr/bin/install-php-extensions /usr/local/bin/
 
-RUN install-php-extensions \
-gd zip pdo_mysql mysqli intl soap opcache exif ldap mbstring xsl bcmath sockets fileinfo xml gettext imagick apcu curl bz2 gmp redis
+RUN set -eux; \
+    install-php-extensions gd zip pdo_mysql mysqli intl soap opcache exif ldap mbstring xsl bcmath sockets fileinfo xml gettext imagick apcu curl bz2 gmp redis; \
+    build_packages="$(dpkg-query -W -f='${Package}\n' 2>/dev/null \
+        | grep -E '(-dev$|^(autoconf|binutils(-.*)?|build-essential|cpp(-[0-9]+)?|dpkg-dev|g\+\+(-[0-9]+)?|gcc(-[0-9]+)?|libtool(-bin)?|m4|make|pkg-config|pkgconf(-.*)?|re2c)$)' \
+        || true)"; \
+    if [ -n "$build_packages" ]; then \
+        echo "$build_packages" | xargs -r apt-get purge -y --; \
+    fi; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # =========================================================================
 # ÉTAPE 3: Configuration Apache
