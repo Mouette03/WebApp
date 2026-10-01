@@ -1,0 +1,84 @@
+# Construit l'image en local (sans publication) et la scanne avec Trivy.
+# Aucun push vers GHCR : ce workflow sert uniquement de contrôle CVE.
+name: Security scan (Trivy)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "security/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Generate Dockerfile
+        run: python3 generate_dockerfile.py
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build amd64 uniquement, chargé dans le daemon local, jamais publié.
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          no-cache: true
+          tags: webapp:scan
+
+      - name: Show remaining build toolchain (should be empty)
+        run: |
+          docker run --rm --entrypoint sh webapp:scan -c \
+            "dpkg -l | awk '/^ii/ {print \$2}' | grep -E '^(gcc|g\+\+|cpp|make|autoconf|dpkg-dev|libc6-dev|linux-libc-dev)(-[0-9.]+)?(:.*)?$' || echo 'aucun outil de compilation'"
+
+      # trivy-action épinglé par SHA de commit (v0.36.0) suite à la
+      # compromission des tags trivy-action de mars 2026 (CVE-2026-33634).
+      - name: Trivy report (all fixable CVEs)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: webapp:scan
+          format: table
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          exit-code: "0"
+          output: trivy-report.txt
+
+      - name: Publish report in job summary
+        if: always()
+        run: |
+          {
+            echo '## Trivy - CVE corrigibles'
+            echo '```'
+            cat trivy-report.txt 2>/dev/null || echo 'rapport indisponible'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Bloque si une CVE CRITIQUE disposant d'un correctif subsiste.
+      - name: Trivy gate (fixable CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: webapp:scan
+          format: table
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL
+          exit-code: "1"
+          skip-setup-trivy: true
