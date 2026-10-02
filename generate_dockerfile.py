@@ -15,6 +15,10 @@ with open('dockerfile.template', 'r', encoding='utf-8') as f:
 # Remplace la version de PHP.
 dockerfile_content = template.replace('%%PHP_VERSION%%', config['php_version'])
 
+# Remplace la variante Debian de l'image de base (ex: 'trixie', 'bookworm').
+# Valeur par défaut 'trixie' si la clé est absente de config.json.
+dockerfile_content = dockerfile_content.replace('%%DEBIAN_VARIANT%%', config.get('debian_variant', 'trixie'))
+
 # Remplace la liste des outils système.
 # Chaque élément est indenté de 4 espaces et se termine par un backslash (sauf le dernier).
 system_tools = '\n'.join(f"    {tool} \\" for tool in config['system_tools'])

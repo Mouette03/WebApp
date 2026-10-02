@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM php:8.3-apache-bookworm
+FROM php:8.3-apache-trixie
 
 # =========================================================================
 # ÉTAPE 1: Mises à jour de sécurité et Outils système

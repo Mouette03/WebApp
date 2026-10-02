@@ -12,8 +12,14 @@ Le fichier `config.json` est le cœur de la configuration. Voici ce que chaque s
 
 ### `php_version`
 La version de PHP à utiliser pour l'image de base.
-- **Exemple** : `"8.3"` utilisera l'image `php:8.3-apache-bookworm`
+- **Exemple** : `"8.3"` avec `debian_variant: "trixie"` utilisera l'image `php:8.3-apache-trixie`
 - **Versions disponibles** : Consultez [Docker Hub - PHP](https://hub.docker.com/_/php) pour les versions disponibles
+
+### `debian_variant`
+La version de Debian de l'image de base officielle PHP.
+- **Valeur par défaut** : `"trixie"` (Debian 13, stable)
+- **Alternative** : `"bookworm"` (Debian 12, en LTS uniquement depuis juillet 2026)
+- Changer cette valeur suffit pour revenir en arrière en cas de problème.
 
 ### `system_tools`
 Liste des outils système à installer avec `apt-get`.
@@ -138,6 +144,7 @@ Utilisation de la syntaxe HEREDOC pour une configuration plus lisible et moins s
 ```json
 {
   "php_version": "8.3",
+  "debian_variant": "trixie",
   "system_tools": [
     "git",
     "curl",
