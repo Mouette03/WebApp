@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM php:8.3-apache-bookworm
+FROM php:8.3-apache-trixie
 
 # =========================================================================
 # ÉTAPE 1: Mises à jour de sécurité et Outils système
@@ -35,6 +35,7 @@ gd zip pdo_mysql mysqli intl soap opcache exif ldap mbstring xsl bcmath sockets 
 # installées, ils sont retirés de l'image finale.
 # 1) Les bibliothèques runtime réellement utilisées par PHP, ses extensions
 #    et Apache (détectées via ldd) sont marquées 'manual' pour être protégées.
+#    Les lignes 'diversion by ...' (merged-/usr de trixie) sont ignorées.
 # 2) $PHPIZE_DEPS et la chaîne gcc/cpp versionnée sont purgés (--auto-remove).
 # 3) Contrôles : aucune bibliothèque manquante et liste des modules PHP
 #    identique avant/après, plus aucun compilateur, sinon le build échoue.
@@ -46,7 +47,8 @@ RUN set -eux; \
       | awk '/=>/ { so = $(NF-1); if (index(so, "/usr/local/") == 1) { next }; gsub("^/(usr/)?", "", so); printf "*%s\n", so }' \
       | sort -u \
       | xargs -r dpkg-query --search 2>/dev/null \
-      | cut -d: -f1 | sort -u \
+      | grep -v '^diversion ' \
+      | cut -d: -f1 | tr ',' '\n' | tr -d ' ' | sort -u \
       | xargs -r apt-mark manual; \
     toolchain="$(dpkg -l 'gcc-[0-9]*' 'g++-[0-9]*' 'cpp' 'cpp-[0-9]*' 2>/dev/null | awk '/^ii/ && $2 !~ /-base/ { sub(/:.*/, "", $2); print $2 }')"; \
     apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false $PHPIZE_DEPS libc6-dev linux-libc-dev $toolchain; \

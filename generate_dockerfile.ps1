@@ -7,6 +7,10 @@ $template = Get-Content "dockerfile.template" -Raw -Encoding UTF8
 # Remplace PHP_VERSION
 $dockerfile = $template -replace '%%PHP_VERSION%%', $config.php_version
 
+# Remplace DEBIAN_VARIANT (par défaut 'trixie' si absent de config.json)
+$debianVariant = if ($config.debian_variant) { $config.debian_variant } else { 'trixie' }
+$dockerfile = $dockerfile -replace '%%DEBIAN_VARIANT%%', $debianVariant
+
 # Remplace SYSTEM_TOOLS avec indentation correcte
 $systemTools = ($config.system_tools | ForEach-Object { "    $_ \" }) -join "`n"
 # Retire le backslash du dernier élément
