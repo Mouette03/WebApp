@@ -170,7 +170,7 @@ Ce projet utilise et remercie les outils open source suivants :
 
 - **[PHP Official Docker Images](https://hub.docker.com/_/php)**  
   Licence : Diverses licences open source ([détails](https://github.com/docker-library/php))  
-  Image de base : `php:8.3-apache-bookworm`
+  Image de base : `php:8.3-apache-trixie`
 
 - **GitHub Actions utilisées** :
   - [actions/checkout](https://github.com/actions/checkout) (MIT)
