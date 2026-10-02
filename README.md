@@ -19,31 +19,52 @@ Ce projet fournit une base pour construire des images Docker `php-apache` person
 
 **Cas d'usage** : Idéale pour héberger des sites web et CMS tels que WordPress, Nextcloud, Joomla, PrestaShop, ou toute application PHP nécessitant Apache et des extensions personnalisées.
 
-Les images sont automatiquement construites et publiées sur le [GitHub Container Registry (ghcr.io)](https://github.com/users/Mouette03/packages/container/package/webapp).
+Le [workflow de publication](.github/workflows/docker-publish.yml) construit et publie les images sur le [GitHub Container Registry (ghcr.io)](https://github.com/users/Mouette03/packages/container/package/webapp) lors d'une Release GitHub publiée ou d'un lancement manuel. Un simple push ne déclenche pas ce workflow dans sa configuration actuelle.
 
-## 🔒 Sécurité
+## Sécurité
 
-Cette image intègre des mesures de sécurité proactives :
+Le [Dockerfile](dockerfile.template) et les workflows appliquent les mesures suivantes. Elles ne constituent pas une garantie d'absence de vulnérabilités et ne remplacent pas les tests de l'application.
 
-- **Mises à jour automatiques** : `apt-get upgrade -y` applique les correctifs de sécurité du système
-- **Installation fiable** : [mlocati/php-extension-installer](https://github.com/mlocati/docker-php-extension-installer) compile les extensions avec les bibliothèques système à jour
-- **Protection CVE** : Mitigation CVE-2025-23048 (Apache) via recommandations de configuration
-- **Images optimisées** : Nettoyage automatique (`apt-get clean`) pour réduire la surface d'attaque
-- **Build sans cache** : `no-cache: true` garantit que chaque build récupère les derniers correctifs de sécurité
-- **Multi-architecture robuste** : Compatible AMD64 et ARM64 sans erreurs de compilation
+- **Mises à jour lors du build** : `apt-get update && apt-get upgrade -y` installe les mises à jour disponibles pour les paquets Debian, dont les correctifs de sécurité publiés dans les dépôts configurés. Aucun mécanisme ne met automatiquement à jour un conteneur déjà lancé : il faut reconstruire ou récupérer une nouvelle image, puis recréer le conteneur.
+- **Installation des extensions** : [mlocati/php-extension-installer](https://github.com/mlocati/docker-php-extension-installer), épinglé en version `2.12.0`, gère l'installation des extensions et de leurs dépendances système. Cet épinglage fixe la version de l'installateur, pas celle de tous les composants de l'image.
+- **Retrait des outils de compilation** : après l'installation des extensions, le Dockerfile protège les paquets des bibliothèques runtime détectées avec `ldd`, puis purge notamment les compilateurs, `make`, `libc6-dev` et `linux-libc-dev`. Le build échoue si les contrôles détectent une dépendance manquante dans les bibliothèques `.so` sous `/usr/local`, une modification de la liste `php -m` ou la présence des outils ciblés après la purge.
+- **Validation Apache** : `apache2ctl -t` vérifie la syntaxe de la configuration pendant le build. Ce contrôle ne teste pas les fonctionnalités de l'application.
+- **Nettoyage des caches** : `apt-get clean` et la suppression des listes APT retirent des données inutiles. Ce nettoyage ne corrige pas les vulnérabilités ; la purge des outils de compilation est une mesure distincte. Les fichiers supprimés dans une couche ultérieure restent stockés dans les couches précédentes, donc la purge ne garantit pas une image plus petite ([documentation Docker](https://docs.docker.com/engine/storage/drivers/)).
+- **Build sans cache** : les workflows utilisent `no-cache: true` pour réexécuter les étapes de construction, notamment les commandes APT. Cette option ne force pas, à elle seule, le renouvellement de l'image de base ; le workflow actuel ne définit pas `pull: true`. Docker distingue `--no-cache` et `--pull` ([documentation Docker](https://docs.docker.com/build/building/best-practices/)). PHP dépend de la version fournie par l'image de base : `apt-get upgrade` n'est pas un mécanisme de mise à jour du PHP fourni sous `/usr/local`.
+- **Construction multi-architecture** : le workflow de publication cible `linux/amd64` et `linux/arm64` via Buildx et QEMU. La réussite doit être vérifiée pour chaque build ; elle n'est pas garantie pour toute combinaison de versions et d'extensions.
+- **Traçabilité** : le workflow de publication demande la génération d'attestations de provenance et d'un SBOM. Ces informations documentent la construction et ses composants, sans garantir leur sécurité.
+
+### Scan de vulnérabilités
+
+Le [workflow Trivy](.github/workflows/security-scan.yml) se déclenche sur les push vers `security/**`, les pull requests ou un lancement manuel. Il construit une image de test AMD64 uniquement, sans la publier.
+
+- **Rapport** : les vulnérabilités disposant d'un correctif sont affichées, toutes sévérités confondues, dans les logs et le résumé du job.
+- **Seuil bloquant** : le job échoue si une vulnérabilité `CRITICAL` disposant d'un correctif est détectée. Les autres sévérités ne sont pas bloquantes et les vulnérabilités sans correctif sont exclues par `ignore-unfixed: true`.
+- **Limites** : ce scan ne couvre pas l'image ARM64 et n'est pas une étape du workflow de publication. Un scan réussi ne signifie donc ni « zéro vulnérabilité » ni validation de toutes les images publiées.
+
+### Apache et CVE-2025-23048
+
+Le Dockerfile contient une recommandation en commentaire, mais n'applique pas `SSLStrictSNIVHostCheck on` et n'active pas `mod_ssl`. Le VirtualHost fourni écoute en HTTP sur le port 80 : aucune mitigation TLS spécifique n'est configurée par ce projet.
+
+Selon l'[avis Apache](https://httpd.apache.org/security/vulnerabilities_24.html), CVE-2025-23048 concerne certaines configurations `mod_ssl` avec plusieurs VirtualHosts, des restrictions par certificats clients et la reprise de session TLS 1.3 ; le correctif amont est fourni dans Apache 2.4.64. Si vous ajoutez TLS et l'authentification par certificat client, vérifiez la version et les correctifs du paquet Apache ainsi que votre configuration effective.
+
+### Extensions dans une image dérivée
+
+Les outils de compilation étant retirés, `pecl install` et `docker-php-ext-install` ne sont plus utilisables tels quels dans une image dérivée. Ajoutez les extensions à `config.json` avant de reconstruire cette image, ou réinstallez explicitement les dépendances de compilation nécessaires dans votre propre build.
 
 ## ⚙️ Configuration
 
 La configuration de l'image se fait entièrement via le fichier `config.json`. Vous pouvez y modifier :
 
 -   **`php_version`** : Version de PHP (ex: `8.3`)
+-   **`debian_variant`** : Variante Debian de l'image de base (`trixie` dans cette branche)
 -   **`system_tools`** : Outils système à installer (git, curl, zip...)
 -   **`php_extensions`** : Extensions PHP (Core + PECL) - gérées automatiquement par [mlocati/php-extension-installer](https://github.com/mlocati/docker-php-extension-installer)
 -   **`php_ini_settings`** : Paramètres du `php.ini`
 
-**Avantage** : Le système utilise `mlocati/php-extension-installer` qui gère automatiquement les dépendances système et fonctionne de manière fiable sur AMD64 et ARM64.
+L'installateur gère les dépendances système des extensions demandées. Leur compatibilité avec la version de PHP, la variante Debian et chaque architecture doit être vérifiée lors du build.
 
-Modifiez simplement ce fichier, et GitHub Actions s'occupera de générer un nouveau `dockerfile` et de construire l'image correspondante.
+Après modification, le workflow de publication régénère le `dockerfile` lorsqu'il est lancé manuellement ou à la publication d'une Release. Un push sur une branche `security/**` déclenche uniquement le workflow de scan pour la construction de test.
 
 ## 🚀 Utilisation
 
@@ -83,7 +104,7 @@ Si vous voulez **forker ce projet** pour créer vos propres images personnalisé
 
 #### 2. Configurez GitHub Actions
 - Allez dans **Settings** → **Actions** → **General**
-- Activez "Read and write permissions" pour `GITHUB_TOKEN`
+- Vérifiez que les politiques de votre dépôt autorisent la publication de packages ; le workflow déclare `contents: read` et `packages: write`
 - Dans **Packages**, rendez votre package public (optionnel)
 
 #### 3. Personnalisez la configuration
@@ -98,33 +119,18 @@ git push
 ```
 
 #### 4. Utilisez votre image
-Vos images seront publiées sur `ghcr.io/VOTRE_USERNAME/webapp:latest`
+Lancez manuellement le workflow pour publier `ghcr.io/VOTRE_USERNAME/webapp:beta` et `:beta-<sha court>`. Publiez une Release GitHub pour produire `:latest` et le tag de cette Release.
 
 ---
 
-### 🛠️ Build Automatisé (pour les mainteneurs du projet)
+### Construction et publication (pour les mainteneurs du projet)
 
-**Modifications simples (config, ajustements) :**
-1.  Modifiez `config.json` selon vos besoins
-2.  Poussez sur `main`
-3.  La version PATCH s'incrémente automatiquement (ex: `1.0.5` → `1.0.6`)
+Le workflow de publication est déclenché par une Release GitHub publiée ou un lancement manuel. Son déclencheur sur les push est actuellement désactivé ; il n'incrémente pas automatiquement `VERSION` et ne crée pas de commit de version.
 
-**Nouvelles fonctionnalités ou changements majeurs :**
-1.  Modifiez `VERSION` manuellement (ex: `1.0.8` → `1.1.0` ou `2.0.0`)
-2.  Modifiez `config.json` si nécessaire
-3.  Poussez sur `main`
+- **Build de test publié** : poussez vos changements, puis lancez le workflow manuellement en sélectionnant la branche à tester. Il publie les tags `:beta` et `:beta-<sha court>`, sans modifier `:latest`.
+- **Release** : après les tests, créez le tag de version voulu et publiez une Release GitHub, par exemple `v1.0.2`. Le workflow publie `:latest` et le tag exact de la Release, par exemple `:v1.0.2`.
 
-GitHub Actions va automatiquement :
-- Vérifier le flag `[skip ci]` pour éviter les builds inutiles
-- Incrémenter la version (PATCH uniquement, sauf si vous changez MAJOR/MINOR)
-- Commiter la nouvelle version dans `VERSION`
-- Générer le `dockerfile` à partir du template avec les améliorations de sécurité
-- Construire l'image pour `linux/amd64` et `linux/arm64` (via QEMU)
-- **Build sans cache** pour garantir les dernières mises à jour de sécurité
-- Publier l'image sur `ghcr.io/mouette03/webapp` avec les tags :
-  - `:latest` (dernière version)
-  - `:v1.0.6` (version avec préfixe v)
-- Nettoyer automatiquement les images non-taggées orphelines
+Dans les deux cas, le workflow régénère le Dockerfile, construit pour AMD64 et ARM64 sans cache de build, puis publie les images avec leurs labels OCI et les attestations demandées. Le nettoyage automatique des anciennes images est désactivé ; il n'est pas exécuté après la publication.
 
 ---
 
