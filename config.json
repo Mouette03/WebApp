@@ -1,5 +1,5 @@
 {
-  "php_version": "8.3",
+  "php_version": "8.5",
   "debian_variant": "trixie",
   "system_tools": [
     "git",
